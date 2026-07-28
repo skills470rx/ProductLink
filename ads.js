@@ -389,6 +389,71 @@ const products = [
     clicks: 0,
     highlight: "ออยล์บำรุงผิวกายสูตร Light Sesame บำรุงผิวแห้ง ไม่เหนียว",
     reason: "ได้ 2 ขวด บำรุงผิวกายให้เนียนนุ่ม"
+  },
+  {
+    id: 31,
+    title: "ANCHI จักรยานไฟฟ้า รถไฟฟ้า",
+    price: 6908,
+    originalPrice: null,
+    image: "a/31.png",
+    url: "https://s.shopee.co.th/7VFA5YIbtl",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "48V12A electric-bicycle",
+    reason: "มีกระจกมองหลัง ไฟเลี้ยว แบตเตอรี่ 4ก้..."
+  },
+  {
+    id: 32,
+    title: "XUTI A60/PRO",
+    price: 26490,
+    originalPrice: null,
+    image: "a/32.png",
+    url: "https://s.shopee.co.th/5ArFJzafzC",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "เก้าอี้นวด มาพร้อมราง SL",
+    reason: "เก้าอี้นวด อัตโนมัติ รีโมทคอนโทรลบลูทูธในตัว สีขาวสีแดงสีดำ"
+  },
+  {
+    id: 33,
+    title: "DUNLOP ยางรถยนต์รถเก๋งกระบะ",
+    price: 18930,
+    originalPrice: null,
+    image: "a/33.png",
+    url: "https://s.shopee.co.th/BSZNCVnIv",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "SUV ขอบ 14-17 นิ้ว จำนวน 4 เส้น",
+    reason: "ปี 2026 + ฟรี!! จับลมยางแท้ Premier"
+  },
+  {
+    id: 34,
+    title: "REAIM ปั๊มลม 30",
+    price: 2419,
+    originalPrice: null,
+    image: "a/34.png",
+    url: "https://s.shopee.co.th/2VqU9mJDOt",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "ลิตร ปั๊มลมออยฟรี 1500W",
+    reason: "มอเตอร์คู่ปั๊ม ลมออยล์ฟรีAir Compressors ปั๊มลมพกพ"
+  },
+  {
+    id: 35,
+    title: "กิจธนบุรี โดย กิจรุ่งเรืองธนบุรี",
+    price: 61500,
+    originalPrice: null,
+    image: "a/35.png",
+    url: "https://s.shopee.co.th/6fg37k9Z4z",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "Honda Scoopy Prestige กุญแจ",
+    reason: "ธรรมดา 2026 110cc ออโต้"
   }
 ];
 
