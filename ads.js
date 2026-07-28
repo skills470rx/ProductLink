@@ -1,597 +1,638 @@
+// ============ PRODUCT DATA ============
 const products = [
   {
-    title: "ของแท้100%OLLIEครีมกำจัดขน70มล.ใช้ได้ทุกจุดปลอดภัยไม่เจ็บ ผิวเรียบเนียนทันที",
-    price: "฿88.00 ฿211.00 ",
+    id: 1,
+    title: "OLLIE ครีมกำจัดขน 70ml ของแท้100% ปลอดภัย ไม่เจ็บ ผิวเรียบเนียนทันที",
+    price: 88,
+    originalPrice: 211,
     image: "a/1.jpg",
-    url: "https://s.shopee.co.th/9fJBOrvOOE"
+    url: "https://s.shopee.co.th/9fJBOrvOOE",
+    category: "beauty",
+    tags: ["hot"],
+    clicks: 0,
+    highlight: "กำจัดขนได้ทุกจุดโดยไม่เจ็บ ผิวเรียบเนียนทันทีหลังใช้",
+    reason: "ราคาคุ้มมาก ลดกว่า 50% จากของแท้ 100% ใช้ได้ทุกจุดบนร่างกาย"
   },
   {
-    title: "ครีมกันแดดเวนิต้า VENITA + VENITA ANTI-ACNE PORE TIGHTENING ESSENCE TONER 150 ML",
-    price: "฿330.00",
+    id: 2,
+    title: "VENITA ครีมกันแดด + โทนเนอร์ Anti-Acne Pore Tightening 150ml",
+    price: 330,
+    originalPrice: null,
     image: "a/2.jpg",
-    url: "https://s.shopee.co.th/4fuVTosFwp"
+    url: "https://s.shopee.co.th/4fuVTosFwp",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "กันแดด + บำรุงในชุดเดียว ปกป้องผิวจากรังสี UV พร้อมลดสิว",
+    reason: "คุ้มค่าเพราะได้ทั้งกันแดดและโทนเนอร์บำรุงผิวในราคาเดียว"
   },
   {
-    title: "โปรโมชั่นสุดคุ้ม (ซื้อ 2 แถม 2 ) FEALI ครีมกันแดด UV Serum Sunscreen SPF50+ PA+++",
-    price: "฿250.00",
+    id: 3,
+    title: "FEALI ครีมกันแดด UV Serum Sunscreen SPF50+ PA+++ (ซื้อ 2 แถม 2)",
+    price: 250,
+    originalPrice: null,
     image: "a/3.png",
-    url: "https://s.shopee.co.th/6VM9feDQUW"
+    url: "https://s.shopee.co.th/6VM9feDQUW",
+    category: "beauty",
+    tags: ["promo", "hot"],
+    clicks: 0,
+    highlight: "โปรโมชั่นซื้อ 2 แถม 2 ได้ถึง 4 ชิ้น เนื้อ serum ดูดซึมไว",
+    reason: "โปรแรงมาก ได้ 4 ชิ้นในราคา 250 บาท คุ้มสุดๆ"
   },
   {
-    title: "ร้านบริษัท] KOTA KERATIN TREATMENT ทรีทเม้นท์เคารา ติน บำรุงเข้มข้น ผมนุ่มลื่น กลิ่นหอม ลดการหลุดร่วง",
-    price: "฿139.00",
+    id: 4,
+    title: "KOTA KERATIN TREATMENT ทรีทเม้นท์เคราติน บำรุงเข้มข้น ผมนุ่มลื่น",
+    price: 139,
+    originalPrice: null,
     image: "a/4.png",
-    url: "https://s.shopee.co.th/1BKdKjOiCS"
+    url: "https://s.shopee.co.th/1BKdKjOiCS",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "ทรีทเม้นท์เคราตินเข้มข้น กลิ่นหอม ลดการหลุดร่วงของเส้นผม",
+    reason: "ราคาไม่ถึง 140 บาท ได้ทรีทเม้นท์ระดับซาลอน"
   },
   {
-    title: "Hydrating Mineral Sunscreen Face SPF50 75ml กันแดดมิเนอรัลสำหรับผิวหน้า เนื้อบางเบา",
-    price: "฿189.00",
+    id: 5,
+    title: "Hydrating Mineral Sunscreen Face SPF50 75ml กันแดดมิเนอรัลผิวหน้า",
+    price: 189,
+    originalPrice: null,
     image: "a/5.png",
-    url: "https://s.shopee.co.th/7AbqTtUC1u"
+    url: "https://s.shopee.co.th/7AbqTtUC1u",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "กันแดดมิเนอรัลเนื้อบางเบา ไม่อุดตัน ใช้ได้กับผิวแพ้ง่าย",
+    reason: "กันแดดมิเนอรัลปลอดภัยสำหรับผิวแพ้ง่าย ราคาเข้าถึงได้"
   },
   {
-    title: "CLEAR NOSE UV Sun Serum SPF50+ PA++++ Sun Booster 80ml.",
-    price: "฿350.00",
+    id: 6,
+    title: "CLEAR NOSE UV Sun Serum SPF50+ PA++++ Sun Booster 80ml",
+    price: 350,
+    originalPrice: null,
     image: "a/6.png",
-    url: "https://s.shopee.co.th/111D9RyfWv"
+    url: "https://s.shopee.co.th/111D9RyfWv",
+    category: "beauty",
+    tags: ["commission"],
+    clicks: 0,
+    highlight: "SPF50+ PA++++ ป้องกันสูงสุด เนื้อ serum บางเบาไม่เหนียวเหนอะหนะ",
+    reason: "PA++++ ป้องกันแสง UV สูงสุด คุ้มกับราคาที่จ่าย"
   },
   {
-    title: "ครีมอาบน้ำผิวขาว ครีมอาบน้ำนมแพะ สบู่ตัวขาว 800ml ทำความสะอาดผิว กันเหงื่อ ผิวกระจ่างใส บำรุงให้ผิวขาวก...",
-    price: "฿299.00 ฿1,049.00",
+    id: 7,
+    title: "ครีมอาบน้ำผิวขาว ครีมอาบน้ำนมแพะ สบู่ตัวขาว 800ml",
+    price: 299,
+    originalPrice: 1049,
     image: "a/7.png",
-    url: "https://s.shopee.co.th/1Le3YDxtji"
+    url: "https://s.shopee.co.th/1Le3YDxtji",
+    category: "beauty",
+    tags: ["hot", "promo"],
+    clicks: 0,
+    highlight: "ลดราคาจาก 1,049 บาท เหลือ 299 บาท ขวดใหญ่ 800ml คุ้มมาก",
+    reason: "ลดราคาเกิน 70% ขวดใหญ่ใช้ได้นาน คุ้มสุดๆ"
   },
   {
-    title: "POPASKIN 577 + 377 Brightening Serum เซรั่มผิวขาว ลดรอยสิว จุดด่างดำ ฝ้า กระ",
-    price: "฿499.00",
+    id: 8,
+    title: "POPASKIN 577 + 377 Brightening Serum เซรั่มผิวขาว ลดรอยสิว จุดด่างดำ",
+    price: 499,
+    originalPrice: null,
     image: "a/8.png",
-    url: "https://s.shopee.co.th/20tkLs2O4s"
+    url: "https://s.shopee.co.th/20tkLs2O4s",
+    category: "beauty",
+    tags: ["hot"],
+    clicks: 0,
+    highlight: "สูตร 577+377 ระดับพรีเมียม ลดฝ้า กระ จุดด่างดำ ได้อย่างเห็นผล",
+    reason: "ส่วนผสมคุณภาพสูง ราคาคุ้มเมื่อเทียบกับแบรนด์ระดับเดียวกัน"
   },
   {
-    title: "กันแดดโทนอัพผิวลูกคุณ Charmiss Paradise Island UV Body Serum Tone Up SPF50+ PA++++ 10...",
-    price: "฿249.00",
+    id: 9,
+    title: "Charmiss Paradise Island UV Body Serum SPF50+ PA++++ โทนอัพผิว",
+    price: 249,
+    originalPrice: null,
     image: "a/9.png",
-    url: "https://s.shopee.co.th/8AUNhVbdV0"
+    url: "https://s.shopee.co.th/8AUNhVbdV0",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "กันแดดสำหรับผิวกาย โทนอัพผิวให้ขาวกระจ่างใสทันที",
+    reason: "กันได้ทั้งแดดพร้อมโทนอัพผิวไปในตัว เหมาะกับหน้าร้อนไทย"
   },
   {
-    title: "สบู่ลดกลิ่นคนแก่ กลิ่นตัวแรง กลิ่นฮอร์โมน กลิ่นตัวผู้ใหญ่ กลิ่นหลังใบหู สบู่ลูกพลับญี่ปุ่น pH5 Balansy 30+",
-    price: "฿439.00",
+    id: 10,
+    title: "สบู่ลูกพลับญี่ปุ่น Balansy 30+ ลดกลิ่นตัวแรง กลิ่นคนแก่",
+    price: 439,
+    originalPrice: null,
     image: "a/10.png",
-    url: "https://s.shopee.co.th/6AjJMh4twI"
+    url: "https://s.shopee.co.th/6AjJMh4twI",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "สูตรลูกพลับญี่ปุ่น pH5 กำจัดกลิ่นตัวแรง กลิ่นฮอร์โมน",
+    reason: "สินค้านวัตกรรมจากญี่ปุ่น แก้ปัญหากลิ่นตัวได้อย่างตรงจุด"
   },
   {
-    title: "แชมพูและครีมนวดผม Extra care Shampoo and Conditioner",
-    price: "฿460.00",
+    id: 11,
+    title: "Extra care Shampoo and Conditioner แชมพูและครีมนวดผม",
+    price: 460,
+    originalPrice: null,
     image: "a/11.png",
-    url: "https://s.shopee.co.th/4qDvxKIJF4"
+    url: "https://s.shopee.co.th/4qDvxKIJF4",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "เซ็ตแชมพูและครีมนวดสูตร Extra care บำรุงเส้นผมให้แข็งแรง",
+    reason: "ได้ทั้งแชมพูและครีมนวดในราคาเดียว คุ้มกว่าซื้อแยก"
   },
   {
-    title: "Merrezca moisture Lip Oil ลิปออยล์ บำรุงริมฝีปากให้ ชุ่มชื้น เงางาม ฉ่ำโกลว์",
-    price: "฿249.00",
+    id: 12,
+    title: "Merrezca Moisture Lip Oil ลิปออยล์ ฉ่ำโกลว์ บำรุงริมฝีปาก",
+    price: 249,
+    originalPrice: null,
     image: "a/12.png",
-    url: "https://s.shopee.co.th/9pcbuj2LG3"
+    url: "https://s.shopee.co.th/9pcbuj2LG3",
+    category: "beauty",
+    tags: ["hot"],
+    clicks: 0,
+    highlight: "ลิปออยล์เนื้อฉ่ำ ให้ริมฝีปากชุ่มชื้น เงางาม ดูสุขภาพดี",
+    reason: "สินค้าขายดี ราคาคุ้ม เหมาะสำหรับใช้ทุกวัน"
   },
   {
-    title: "2 ขวด แถม 2 ขวด ขนาดทดลอง ครีมอาบน้ำลดสิวแผ่น หลังและลำตัว ลดสิวอุดตัน DEOdore'สีเขียว",
-    price: "฿598.00",
+    id: 13,
+    title: "DEOdore ครีมอาบน้ำลดสิวแผ่นหลัง สูตรลดรอย สิว (2 ขวด แถม 2 ขวด)",
+    price: 598,
+    originalPrice: null,
     image: "a/13.png",
-    url: "https://s.shopee.co.th/8fQeWnsfjM"
+    url: "https://s.shopee.co.th/8fQeWnsfjM",
+    category: "beauty",
+    tags: ["promo"],
+    clicks: 0,
+    highlight: "โปรซื้อ 2 แถม 2 สูตรลดสิวแผ่นหลังโดยเฉพาะ",
+    reason: "โปรคุ้มมาก ได้ 4 ขวดในราคา 598 บาท เฉลี่ยขวดละไม่ถึง 150"
   },
   {
-    title: "ครีมอาบน้ำลดสิวแผ่นหลังและลำตัว สูตรลดรอย สิว DEOdore' shower cream Brightening",
-    price: "฿777.00",
+    id: 14,
+    title: "DEOdore Cream Brightening ครีมอาบน้ำลดสิวแผ่นหลัง สูตรลดรอย",
+    price: 777,
+    originalPrice: null,
     image: "a/14.png",
-    url: "https://s.shopee.co.th/7fY7L7KgYl"
+    url: "https://s.shopee.co.th/7fY7L7KgYl",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "สูตร Brightening ลดสิวแผ่นหลังพร้อมจางรอยสิว",
+    reason: "แก้ปัญหาสิวแผ่นหลังและรอยสิวไปในตัว"
   },
   {
-    title: "APEX-SX WHITE UP CREAM ครีมทารักแร้ขาว โดยแพทย์ ผิวหนังเอเพ็กซ์ ทาขาหนีบดำ แก้มก้นดำ 50 ml.",
-    price: "฿990.00",
+    id: 15,
+    title: "APEX-SX WHITE UP CREAM ครีมทารักแร้ขาว โดยแพทย์ผิวหนัง",
+    price: 990,
+    originalPrice: null,
     image: "a/15.png",
-    url: "https://s.shopee.co.th/8V7EL311MY"
+    url: "https://s.shopee.co.th/8V7EL311MY",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "ผลิตโดยแพทย์ผิวหนัง ใช้ทารักแร้ ขาหนีบ แก้มก้น ให้ขาวขึ้น",
+    reason: "พัฒนาโดยแพทย์ผิวหนัง มั่นใจได้ในความปลอดภัย"
   },
   {
-    title: "บอดี้สเปรย์ ลดกลิ่นตัวแรง กำจัดทุกกลิ่นกาย ทุกเพศ/ วัย กลิ่นคนแก่ จากลูกพลับญี่ปุ่น pH4 -บาลานซี่ 30+Anti ...",
-    price: "฿469.00",
+    id: 16,
+    title: "Balansy 30+ บอดี้สเปรย์ลดกลิ่นตัวแรง กำจัดทุกกลิ่นกาย",
+    price: 469,
+    originalPrice: null,
     image: "a/16.png",
-    url: "https://s.shopee.co.th/1BKdbjpurN"
+    url: "https://s.shopee.co.th/1BKdbjpurN",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "สเปรย์ลดกลิ่นตัวจากลูกพลับญี่ปุ่น pH4 ใช้ได้ทุกเพศ ทุกวัย",
+    reason: "นวัตกรรมจากญี่ปุ่น ใช้ง่ายสเปรย์ได้เลย ไม่ต้องอาบ"
   },
   {
-    title: "APEX-SX FEMM SERUM เซรั่มบำรุงให้ผิวน้องสาว สวย สุขภาพดี 50 ml.",
-    price: "฿1,490.00",
+    id: 17,
+    title: "APEX-SX FEMM SERUM เซรั่มบำรุงผิวจุดซ่อนเร้น 50ml",
+    price: 1490,
+    originalPrice: null,
     image: "a/17.png",
-    url: "https://s.shopee.co.th/4AyFBM6Fc5"
+    url: "https://s.shopee.co.th/4AyFBM6Fc5",
+    category: "beauty",
+    tags: ["commission"],
+    clicks: 0,
+    highlight: "เซรั่มบำรุงผิวจุดซ่อนเร้น ให้สุขภาพดีและสวยงาม",
+    reason: "สินค้าเฉพาะทางคุณภาพสูง ดูแลผิวจุดซ่อนเร้นอย่างถูกวิธี"
   },
   {
-    title: "Eucerin SPOTLESS BRIGHTENING THIAMIDOL BOOSTER SERUM 30 ML",
-    price: "฿2,250.00",
+    id: 18,
+    title: "Eucerin SPOTLESS THIAMIDOL BOOSTER SERUM 30ml",
+    price: 2250,
+    originalPrice: null,
     image: "a/18.png",
-    url: "https://s.shopee.co.th/9AMvAQOVFW"
+    url: "https://s.shopee.co.th/9AMvAQOVFW",
+    category: "beauty",
+    tags: ["commission"],
+    clicks: 0,
+    highlight: "เซรั่ม Thiamidol จาก Eucerin ลดจุดด่างดำ ฝ้า กระ อย่างมีประสิทธิภาพ",
+    reason: "แบรนด์ระดับพรีเมียมจากเยอรมนี Thiamidol สารลดฝ้าชั้นนำของโลก"
   },
   {
-    title: "Banala Lite อุปกรณ์ช่วยนอนหลับ หลับง่าย หลับลึก หลับ สนิท ตื่นสดชื่นด้วยนวัตกรรมคลื่นเสียงอัจฉริยะ",
-    price: "฿1,790.00",
+    id: 19,
+    title: "Banala Lite อุปกรณ์ช่วยนอนหลับ คลื่นเสียงอัจฉริยะ",
+    price: 1790,
+    originalPrice: null,
     image: "a/19.png",
-    url: "https://s.shopee.co.th/4Vb5bxPgxE"
+    url: "https://s.shopee.co.th/4Vb5bxPgxE",
+    category: "home",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "นวัตกรรมคลื่นเสียงอัจฉริยะ ช่วยให้หลับง่าย หลับลึก ตื่นสดชื่น",
+    reason: "ใครนอนยากต้องลอง คลื่นเสียงช่วยให้สมองผ่อนคลาย หลับลึกขึ้น"
   },
   {
-    title: "ANCHI Electric bike จักรยานไฟฟ้า 580W วิ่งได้ เวลาใช้ งานแบตเตอรี่นาน เหมาะสำหรับผู้ใหญ่ นักเรียน ปลอดภัย",
-    price: "฿9,298.00 ฿10,458.00",
+    id: 20,
+    title: "ANCHI Electric Bike จักรยานไฟฟ้า 580W แบตเตอรี่นาน ปลอดภัย",
+    price: 9298,
+    originalPrice: 10458,
     image: "a/20.png",
-    url: "https://s.shopee.co.th/7VEhBd6enC"
+    url: "https://s.shopee.co.th/7VEhBd6enC",
+    category: "auto",
+    tags: ["hot"],
+    clicks: 0,
+    highlight: "จักรยานไฟฟ้า 580W วิ่งได้ไกล แบตเตอรี่นาน เหมาะสำหรับทุกคน",
+    reason: "ลดราคาจาก 10,458 บาท ประหยัดกว่า 1,000 บาท คุ้มค่า"
   },
   {
-    title: "สินค้าขายดี]นีเวีย ลูมินัส630 สกิน โกลว์ เซรั่ม เซรั่มผิวใส เซรั่มทาหน้า30 มล.2 ชิ้นNIVEA",
-    price: "฿892.00",
+    id: 21,
+    title: "NIVEA Luminous630 Skin Glow Serum เซรั่มผิวใส 30ml (2 ชิ้น)",
+    price: 892,
+    originalPrice: null,
     image: "a/21.png",
-    url: "https://s.shopee.co.th/6pz0ObEJcc"
+    url: "https://s.shopee.co.th/6pz0ObEJcc",
+    category: "beauty",
+    tags: ["hot"],
+    clicks: 0,
+    highlight: "เซรั่ม NIVEA สูตร Luminous630 ลดจุดด่างดำ เห็นผลใน 2 สัปดาห์",
+    reason: "สินค้าขายดีของ NIVEA ได้ 2 ชิ้นในราคาคุ้ม"
   },
   {
-    title: "หัวเชื้อแมวมิ้น แมวดำ/วีไอพี",
-    price: "฿590.00",
+    id: 22,
+    title: "หัวเชื้อแมวมิ้น แมวดำ / วีไอพี",
+    price: 590,
+    originalPrice: null,
     image: "a/22.png",
-    url: "https://s.shopee.co.th/7fY8UlAdvf"
+    url: "https://s.shopee.co.th/7fY8UlAdvf",
+    category: "home",
+    tags: [],
+    clicks: 0,
+    highlight: "หัวเชื้อแมวมิ้น สูตรพรีเมียม สำหรับผู้ที่ชื่นชอบความหอมเฉพาะตัว",
+    reason: "สินค้าเอกลักษณ์เฉพาะตัว กลิ่นหอมติดทน"
   },
   {
-    title: "Eucerin pH5 VERY DRY SENSITIVE SKIN SHOWER OIL 400 ML ออยล์อาบน้ำผสมน้ำมัน สำหรับผิวแห้งมาก บ...",
-    price: "฿718.00",
+    id: 23,
+    title: "Eucerin pH5 Shower Oil 400ml ออยล์อาบน้ำสำหรับผิวแห้งมาก",
+    price: 718,
+    originalPrice: null,
     image: "a/23.png",
-    url: "https://s.shopee.co.th/1BKelV0cp0"
+    url: "https://s.shopee.co.th/1BKelV0cp0",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "ออยล์อาบน้ำ pH5 สำหรับผิวแห้งมาก ไม่ทำให้ผิวตึงหลังอาบ",
+    reason: "Eucerin แบรนด์ Dermatological ที่ไว้ใจได้ ขวดใหญ่ 400ml คุ้ม"
   },
   {
-    title: "MizuMi UV Water Serum SPF50+ PA+++ + 40g No.1 Best Selling Sunscreen เซรั่มกันแดด บา...",
-    price: "฿800.00",
+    id: 24,
+    title: "MizuMi UV Water Serum SPF50+ PA+++ เซรั่มกันแดด No.1 Best Selling",
+    price: 800,
+    originalPrice: null,
     image: "a/24.png",
-    url: "https://s.shopee.co.th/LlXmDAwBk"
+    url: "https://s.shopee.co.th/LlXmDAwBk",
+    category: "beauty",
+    tags: ["hot"],
+    clicks: 0,
+    highlight: "กันแดดขายดีอันดับ 1 จาก MizuMi เนื้อ Water Serum บางเบา",
+    reason: "ขายดีอันดับ 1 ในญี่ปุ่น พิสูจน์แล้วว่าดีจริง"
   },
   {
-    title: "Adidas รองเท้าวิ่ง Adizero Evo SL Shoes 2026 KI7354",
-    price: "฿4,382.00",
+    id: 25,
+    title: "Adidas Adizero Evo SL รองเท้าวิ่ง 2026 KI7354",
+    price: 4382,
+    originalPrice: null,
     image: "a/25.png",
-    url: "https://s.shopee.co.th/9AMwIismjG"
+    url: "https://s.shopee.co.th/9AMwIismjG",
+    category: "fashion",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "รองเท้าวิ่ง Adidas Adizero รุ่น 2026 น้ำหนักเบา วิ่งสบาย",
+    reason: "รองเท้าวิ่งระดับแข่งจาก Adidas เทคโนโลยีล่าสุด"
   },
   {
-    title: "การ์นิเย่ ไมเซล่าฝาชมพู คลีนซิ่ง วอเตอร์ เซน ซิทีฟ สกิน 400มล GARNIER MICELLAR CLEANSING ...",
-    price: "฿529.00",
+    id: 26,
+    title: "GARNIER Micellar Cleansing Water ฝาชมพู เซนซีทีฟ 400ml",
+    price: 529,
+    originalPrice: null,
     image: "a/26.png",
-    url: "https://s.shopee.co.th/2qSslYre9S"
+    url: "https://s.shopee.co.th/2qSslYre9S",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "ไมเซล่าวอเตอร์สูตรเซนซีทีฟ ลบเครื่องสำอางและทำความสะอาดผิว",
+    reason: "Garnier แบรนด์ที่ทุกคนรู้จัก ราคาถูก คุณภาพดี"
   },
   {
-    title: "MizuMi Dry Rescue Intense Melt-In Cream 45m มอยส์เจอร์ไรเซอร์สำหรับผิวแห้ง ผิวแห้งมาก ผิวขาด",
-    price: "฿379.00",
+    id: 27,
+    title: "MizuMi Dry Rescue Intense Melt-In Cream 45ml มอยส์เจอร์ไรเซอร์ผิวแห้ง",
+    price: 379,
+    originalPrice: null,
     image: "a/27.png",
-    url: "https://s.shopee.co.th/8AUP7xJlv8"
+    url: "https://s.shopee.co.th/8AUP7xJlv8",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "ครีมบำรุงผิวแห้งมาก เนื้อ melt-in ดูดซึมไว ไม่เหนอะหนะ",
+    reason: "เหมาะกับผิวแห้งมากโดยเฉพาะ ให้ความชุ่มชื้นสูง"
   },
   {
-    title: "นูโทรจีนา เจลอาบน้ำ เรนบาธ 473 มล. x2 Neutrogena Rainbath Shower and Bath Gel",
-    price: "฿690.00",
+    id: 28,
+    title: "Neutrogena Rainbath Shower Gel 473ml x2 เจลอาบน้ำเรนบาธ",
+    price: 690,
+    originalPrice: null,
     image: "a/28.png",
-    url: "https://s.shopee.co.th/8AUP86Fiwk"
+    url: "https://s.shopee.co.th/8AUP86Fiwk",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "เจลอาบน้ำกลิ่นหอมสดชื่น ขวดใหญ่ 473ml ได้ 2 ขวด",
+    reason: "ได้ 2 ขวดใหญ่ในราคา 690 บาท เฉลี่ยขวดละ 345 บาท"
   },
   {
-    title: "Bioderma Sensibio H2O ไมเซล่าคลีนซิ่งวอเตอร์ สำหรับ ผิวแพ้ ระคายง่าย 500 มล. ฝาธรรมดา 2 ขวด",
-    price: "฿1,589.00",
+    id: 29,
+    title: "Bioderma Sensibio H2O ไมเซล่าคลีนซิ่งวอเตอร์ 500ml 2 ขวด",
+    price: 1589,
+    originalPrice: null,
     image: "a/29.png",
-    url: "https://s.shopee.co.th/6ffbLVtToV"
+    url: "https://s.shopee.co.th/6ffbLVtToV",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "ไมเซล่าวอเตอร์ของ Bioderma สำหรับผิวแพ้ง่าย ขวดใหญ่ 500ml",
+    reason: "Bioderma เป็นแบรนด์ Dermatological ที่แพทย์แนะนำ"
   },
   {
-    title: "นูโทรจีนา ออยบำรุงผิว บอดี้ ออยล์ ไลท์ เซซา มี่ 250 มล. x 2 Neutrogena Body Oil Light Sesame...",
-    price: "฿1,045.00",
+    id: 30,
+    title: "Neutrogena Body Oil Light Sesame 250ml x2 ออยล์บำรุงผิว",
+    price: 1045,
+    originalPrice: null,
     image: "a/30.png",
-    url: "https://s.shopee.co.th/7AbrwYXVC5"
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿330.00",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
-  {
-    title: "แชมพูสมุนไพร",
-    price: "฿199",
-    image: "2.jpg",
-    url: "https://..."
-  },
-  {
-    title: "เซรั่มบำรุงผม",
-    price: "฿259",
-    image: "3.jpg",
-    url: "https://..."
-  },
+    url: "https://s.shopee.co.th/7AbrwYXVC5",
+    category: "beauty",
+    tags: [],
+    clicks: 0,
+    highlight: "ออยล์บำรุงผิวกายสูตร Light Sesame บำรุงผิวแห้ง ไม่เหนียว",
+    reason: "ได้ 2 ขวด บำรุงผิวกายให้เนียนนุ่ม"
+  }
 ];
 
-let html = "";
+// ============ TAG DEFINITIONS ============
+const tagConfig = {
+  hot:       { label: "🔥 ขายดี",    color: "#e74c3c", bg: "#fde8e8" },
+  promo:     { label: "💥 โปรแรง",    color: "#e67e22", bg: "#fef0e0" },
+  recommend: { label: "⭐ แนะนำ",    color: "#27ae60", bg: "#e8f8f0" },
+  commission:{ label: "💰 ค่าคอมดี",  color: "#8e44ad", bg: "#f3e5f5" }
+};
 
-products.forEach(product => {
-  html += `
-    <div class="card">
-      <img src="${product.image}">
-      <div class="info">
-        <div class="title">${product.title}</div>
-        <div class="price">${product.price}</div>
-        <a class="button" href="${product.url}" target="_blank">
-          ดูสินค้า
-        </a>
+const catNames = {
+  all: "ทั้งหมด",
+  beauty: "💄 ความงาม",
+  fashion: "👕 แฟชั่น",
+  tech: "📱 ไอที",
+  home: "🏠 ของใช้",
+  auto: "🚗 ยานยนต์"
+};
+
+// ============ STATE ============
+let currentCategory = "all";
+let currentSort = "latest";
+let searchQuery = "";
+let clickCounts = {};
+
+// Load click counts from localStorage
+try {
+  const saved = localStorage.getItem("productlink_clicks");
+  if (saved) clickCounts = JSON.parse(saved);
+} catch(e) {}
+
+// ============ HELPER FUNCTIONS ============
+function extractPriceNum(price) {
+  const match = price.match(/[\d,]+/);
+  return match ? parseFloat(match[0].replace(/,/g, "")) : 0;
+}
+
+function getClicks(id) {
+  return clickCounts[id] || 0;
+}
+
+function addClick(id) {
+  clickCounts[id] = (clickCounts[id] || 0) + 1;
+  try { localStorage.setItem("productlink_clicks", JSON.stringify(clickCounts)); } catch(e) {}
+}
+
+function filterAndSort() {
+  let filtered = products;
+
+  // Filter by category
+  if (currentCategory !== "all") {
+    filtered = filtered.filter(p => p.category === currentCategory);
+  }
+
+  // Filter by search
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
+    filtered = filtered.filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      p.highlight.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  switch (currentSort) {
+    case "price-asc":
+      filtered.sort((a, b) => a.price - b.price);
+      break;
+    case "price-desc":
+      filtered.sort((a, b) => b.price - a.price);
+      break;
+    case "clicks":
+      filtered.sort((a, b) => getClicks(b.id) - getClicks(a.id));
+      break;
+    case "popular":
+      filtered.sort((a, b) => (getClicks(b.id) + (b.tags.includes("hot") ? 10 : 0)) - (getClicks(a.id) + (a.tags.includes("hot") ? 10 : 0)));
+      break;
+    case "latest":
+    default:
+      filtered.sort((a, b) => b.id - a.id);
+      break;
+  }
+
+  return filtered;
+}
+
+// ============ RENDER ============
+function renderProducts(list, highlightId) {
+  const container = document.getElementById("ads");
+  const info = document.getElementById("resultsInfo");
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <h3>ไม่พบสินค้าที่ตรงตามเงื่อนไข</h3>
+        <p>ลองค้นหาด้วยคำอื่น หรือเปลี่ยนหมวดหมู่</p>
+      </div>`;
+    info.textContent = "";
+    return;
+  }
+
+  info.textContent = `พบ ${list.length} รายการ`;
+
+  container.innerHTML = list.map(p => {
+    const clicks = getClicks(p.id);
+    const isHighlight = highlightId && p.id === highlightId;
+    return `
+    <div class="card ${isHighlight ? 'card-highlight' : ''}" data-id="${p.id}">
+      <div class="card-image-wrap">
+        <img src="${p.image}" alt="${p.title}" loading="lazy">
+        ${p.tags.length ? `<div class="card-tags">${p.tags.map(t => `<span class="tag" style="color:${tagConfig[t].color};background:${tagConfig[t].bg}">${tagConfig[t].label}</span>`).join("")}</div>` : ""}
+        ${clicks > 0 ? `<div class="card-clicks"><span>👁 ${clicks}</span></div>` : ""}
       </div>
-    </div>
+      <div class="card-body">
+        <div class="card-title">${p.title}</div>
+        <div class="card-price">
+          <span class="price-current">฿${p.price.toLocaleString()}</span>
+          ${p.originalPrice ? `<span class="price-original">฿${p.originalPrice.toLocaleString()}</span>` : ""}
+          ${p.originalPrice ? `<span class="price-discount">-${Math.round((1 - p.price / p.originalPrice) * 100)}%</span>` : ""}
+        </div>
+        <button class="card-btn" onclick="openDetail(${p.id})">ดูรายละเอียด</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ============ DETAIL MODAL ============
+function openDetail(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+
+  addClick(id);
+
+  document.getElementById("modalImage").src = p.image;
+  document.getElementById("modalTitle").textContent = p.title;
+  document.getElementById("modalPrice").innerHTML = `
+    <span class="modal-price-current">฿${p.price.toLocaleString()}</span>
+    ${p.originalPrice ? `<span class="modal-price-original">฿${p.originalPrice.toLocaleString()}</span>` : ""}
+    ${p.originalPrice ? `<span class="modal-price-discount">ลด ${Math.round((1 - p.price / p.originalPrice) * 100)}%</span>` : ""}
   `;
+
+  // Tags
+  const tagsEl = document.getElementById("modalTags");
+  tagsEl.innerHTML = p.tags.length ? p.tags.map(t => `<span class="tag" style="color:${tagConfig[t].color};background:${tagConfig[t].bg}">${tagConfig[t].label}</span>`).join("") : "";
+
+  // Highlights
+  const hlEl = document.getElementById("modalHighlights");
+  hlEl.innerHTML = p.highlight ? `
+    <div class="highlight-section">
+      <h4>✨ จุดเด่น</h4>
+      <p>${p.highlight}</p>
+    </div>` : "";
+
+  // Reason
+  const reasonEl = document.getElementById("modalReason");
+  reasonEl.innerHTML = p.reason ? `
+    <div class="reason-section">
+      <h4>💡 ทำไมเราแนะนำ</h4>
+      <p>${p.reason}</p>
+    </div>` : "";
+
+  // Meta
+  document.getElementById("modalClicks").textContent = `👁 ${getClicks(id)} ครั้ง`;
+  document.getElementById("modalCat").textContent = catNames[p.category] || p.category;
+
+  // Go button
+  const goBtn = document.getElementById("modalGoBtn");
+  goBtn.href = p.url;
+  goBtn.onclick = function() {
+    // Track click before opening
+    addClick(id);
+  };
+
+  // Show modal
+  document.getElementById("modalOverlay").classList.add("active");
+  document.body.style.overflow = "hidden";
+
+  // Refresh grid to show updated click count
+  refreshGrid();
+}
+
+function closeDetail() {
+  document.getElementById("modalOverlay").classList.remove("active");
+  document.body.style.overflow = "";
+}
+
+document.getElementById("modalClose").addEventListener("click", closeDetail);
+document.getElementById("modalOverlay").addEventListener("click", function(e) {
+  if (e.target === this) closeDetail();
 });
 
-document.getElementById("ads").innerHTML = html;
+// ============ RANDOM ============
+document.getElementById("randomBtn").addEventListener("click", function() {
+  const pool = filterAndSort();
+  if (pool.length === 0) {
+    alert("ไม่มีสินค้าให้เลือกสุ่ม");
+    return;
+  }
+  const random = pool[Math.floor(Math.random() * pool.length)];
+  openDetail(random.id);
+});
+
+// ============ SEARCH ============
+const searchInput = document.getElementById("searchInput");
+const clearBtn = document.getElementById("clearSearch");
+
+searchInput.addEventListener("input", function() {
+  searchQuery = this.value;
+  clearBtn.style.display = this.value ? "block" : "none";
+  refreshGrid();
+});
+
+clearBtn.addEventListener("click", function() {
+  searchQuery = "";
+  searchInput.value = "";
+  clearBtn.style.display = "none";
+  searchInput.focus();
+  refreshGrid();
+});
+
+// ============ SORT ============
+document.getElementById("sortSelect").addEventListener("change", function() {
+  currentSort = this.value;
+  refreshGrid();
+});
+
+// ============ CATEGORIES ============
+document.querySelectorAll(".cat-btn").forEach(btn => {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+    currentCategory = this.dataset.cat;
+    refreshGrid();
+  });
+});
+
+// ============ REFRESH ============
+function refreshGrid() {
+  const filtered = filterAndSort();
+  renderProducts(filtered);
+}
+
+// ============ INIT ============
+refreshGrid();
