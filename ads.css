@@ -1,3 +1,98 @@
+/* ============ PROFILE STRIP ============ */
+.profile-strip {
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(102,126,234,0.1);
+  position: relative;
+  z-index: 20;
+}
+
+.profile-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.profile-avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #667eea;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.3);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.profile-avatar:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 16px rgba(102,126,234,0.4);
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.profile-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.social-link {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  text-decoration: none;
+  transition: all 0.3s;
+  background: #f5f5f5;
+}
+
+.social-link:hover {
+  color: #fff;
+  transform: translateY(-2px) scale(1.1);
+}
+
+.social-link[title="Telegram"]:hover { background: #0088cc; }
+.social-link[title="GitHub"]:hover { background: #333; }
+.social-link[title="YouTube"]:hover { background: #ff0000; }
+.social-link[title="Facebook"]:hover { background: #1877f2; }
+.social-link[title="TikTok"]:hover { background: #000; }
+.social-link[title="Instagram"]:hover { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+.social-link[title="X (Twitter)"]:hover { background: #000; }
+
+@media (max-width: 640px) {
+  .profile-inner { padding: 10px 14px; gap: 10px; }
+  .profile-avatar { width: 36px; height: 36px; }
+  .profile-name { font-size: 0.95rem; }
+  .social-link { width: 28px; height: 28px; }
+  .social-link svg { width: 14px; height: 14px; }
+  .profile-links { gap: 6px; }
+}
+
 /* ============ RESET & BASE ============ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
