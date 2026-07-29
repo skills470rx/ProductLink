@@ -662,6 +662,97 @@ const products = [
     clicks: 0,
     highlight: "😊",
     reason: "💯"
+  },
+  {
+    id: 52,
+    title: "HP VICTUS i5-13420H RTX 3050 16GB 512GB FHD IPS 144 Hz | 1Yrs | 15-fa2187TX โน๊ตบุ๊ค",
+    price: 444449,
+    originalPrice: null,
+    image: "a/52.png",
+    url: "https://s.shopee.co.th/7fYbMYjfaD",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "😊",
+    reason: "💯"
+  },
+  {
+    id: 53,
+    title: "HyperX OMEN AMD Ryzen 5 240 RTX 5050",
+    price: 39390,
+    originalPrice: null,
+    image: "a/53.png",
+    url: "https://s.shopee.co.th/9fJfkW0KVq",
+    category: "beauty",
+    tags: ["promo", "hot"],
+    clicks: 0,
+    highlight: "16GB/1TB 13.3 2K 165Hz ",
+    reason: "Win11+MS24 2Yrs 15-g..."
+  },
+  {
+    id: 54,
+    title: "HONOR Pad X7 LTE (4+128GB) แท็บเล็ตมินิจอใหญ่8.7 นิ้ว",
+    price: 4899,
+    originalPrice: null,
+    image: "a/54.png",
+    url: "https://s.shopee.co.th/903yxaZ7q7",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "รองรับการใส่ซิม โทรออกได้",
+    reason: "บาง 7.99 มม."
+  },
+  {
+    id: 55,
+    title: "NEW แล็ปท็อปใหม่ 14.1 นิ้ว HD Intel Core 2.9GHz Notebook 16GB+1TB โน๊ตบุ๊คLaptops เกม ธุรกิจ",
+    price: 7878,
+    originalPrice: null,
+    image: "a/55.png",
+    url: "https://s.shopee.co.th/903yzXiPGk",
+    category: "beauty",
+    tags: ["recommend"],
+    clicks: 0,
+    highlight: "😊",
+    reason: "💯"
+  },
+  {
+    id: 56,
+    title: "NOTEBOOK (โน๊ตบุ๊ค) ACER NITRO V15ANV15-52-73BK Ci7-13620H/16GB DDR5/512GB SSD/...",
+    price: 37800,
+    originalPrice: null,
+    image: "a/56.png",
+    url: "https://s.shopee.co.th/6fg4DO64Ls",
+    category: "beauty",
+    tags: ["commission"],
+    clicks: 0,
+    highlight: "😊",
+    reason: "💯"
+  },
+  {
+    id: 57,
+    title: "ASUS TUF Gaming F15 Core i9-11900H RTX3070 เลือกสเปคได้ โน้ตบุ๊คเกมมิ่ง มือสอง",
+    price: 35990,
+    originalPrice: 1049,
+    image: "a/57.png",
+    url: "https://s.shopee.co.th/2BDerKQkSq",
+    category: "beauty",
+    tags: ["hot", "promo"],
+    clicks: 0,
+    highlight: "😊",
+    reason: "💯"
+  },
+  {
+    id: 58,
+    title: "คอมพิวเตอร์ ครบชุด Core-i7 /GTX 1060 6Gb /Ram 16Gb ทำงาน-เล่นเกมส์ Pubg, Freefire,Varolant,GTA V",
+    price: 12682,
+    originalPrice: null,
+    image: "a/58.png",
+    url: "https://s.shopee.co.th/50XqEiEt5Q",
+    category: "beauty",
+    tags: ["hot"],
+    clicks: 0,
+    highlight: "😊",
+    reason: "💯"
   }
 ];
 
