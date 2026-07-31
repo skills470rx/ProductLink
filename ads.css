@@ -58,6 +58,72 @@
   gap: 8px;
 }
 
+/* Social group (dropdown) */
+.social-group {
+  position: relative;
+}
+
+.social-dropdown-toggle {
+  cursor: pointer;
+  position: relative;
+}
+
+.dropdown-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.social-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
+  min-width: 200px;
+  z-index: 100;
+  padding: 6px 0;
+  animation: dropdownFadeIn 0.2s ease;
+}
+
+.social-dropdown.active {
+  display: block;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-item {
+  display: block;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  text-decoration: none;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.dropdown-item:hover {
+  background: #f0f4ff;
+  color: #667eea;
+}
+
 .social-link {
   width: 32px;
   height: 32px;
@@ -76,13 +142,25 @@
   transform: translateY(-2px) scale(1.1);
 }
 
+.social-link[data-group="telegram"]:hover,
 .social-link[title="Telegram"]:hover { background: #0088cc; }
+.social-link[data-group="github"]:hover,
 .social-link[title="GitHub"]:hover { background: #333; }
+.social-link[data-group="youtube"]:hover,
 .social-link[title="YouTube"]:hover { background: #ff0000; }
+.social-link[data-group="facebook"]:hover,
 .social-link[title="Facebook"]:hover { background: #1877f2; }
+.social-link[data-group="tiktok"]:hover,
 .social-link[title="TikTok"]:hover { background: #000; }
+.social-link[data-group="instagram"]:hover,
 .social-link[title="Instagram"]:hover { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+.social-link[data-group="threads"]:hover {
+  background: #000;
+}
+.social-link[data-group="x"]:hover,
 .social-link[title="X (Twitter)"]:hover { background: #000; }
+.social-link[title="WhatsApp"]:hover { background: #25d366; }
+.social-link[title="Shop"]:hover { background: #ee4d2d; }
 
 @media (max-width: 640px) {
   .profile-inner { padding: 10px 14px; gap: 10px; }
@@ -91,6 +169,9 @@
   .social-link { width: 28px; height: 28px; }
   .social-link svg { width: 14px; height: 14px; }
   .profile-links { gap: 6px; }
+  .dropdown-badge { width: 14px; height: 14px; font-size: 8px; top: -5px; right: -5px; }
+  .social-dropdown { min-width: 160px; }
+  .dropdown-item { font-size: 0.8rem; padding: 8px 12px; }
 }
 
 /* ============ RESET & BASE ============ */
