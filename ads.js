@@ -998,5 +998,346 @@ function refreshGrid() {
   renderProducts(filtered);
 }
 
+// ============ IMPORT MODAL ============
+const importOverlay = document.getElementById("importOverlay");
+const importClose = document.getElementById("importClose");
+const importBtn = document.getElementById("importBtn");
+const importActionBtn = document.getElementById("importActionBtn");
+const importUrlsEl = document.getElementById("importUrls");
+const importProgressEl = document.getElementById("importProgress");
+const progressFill = document.getElementById("progressFill");
+const progressText = document.getElementById("progressText");
+const importPreviewEl = document.getElementById("importPreview");
+const importActionsEl = document.getElementById("importActions");
+const importSaveAll = document.getElementById("importSaveAll");
+
+let importResults = [];
+
+importBtn.addEventListener("click", function() {
+  importOverlay.classList.add("active");
+  document.body.style.overflow = "hidden";
+  importPreviewEl.innerHTML = "";
+  importProgressEl.style.display = "none";
+  importActionsEl.style.display = "none";
+  importResults = [];
+});
+
+importClose.addEventListener("click", closeImport);
+importOverlay.addEventListener("click", function(e) {
+  if (e.target === this) closeImport();
+});
+
+function closeImport() {
+  importOverlay.classList.remove("active");
+  document.body.style.overflow = "";
+}
+
+importActionBtn.addEventListener("click", function() {
+  const text = importUrlsEl.value.trim();
+  if (!text) {
+    alert("กรุณาวางลิงก์ Shopee อย่างน้อย 1 ลิงก์");
+    return;
+  }
+
+  // Parse URLs (split by newlines, trim, filter empty)
+  const urls = text.split(/\n/).map(u => u.trim()).filter(u => u.length > 0 && (u.includes("shopee.co.th") || u.includes("s.shopee.co.th") || u.includes("shopee.com")));
+  
+  if (urls.length === 0) {
+    alert("ไม่พบลิงก์ Shopee ที่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+    return;
+  }
+
+  // Show progress
+  importProgressEl.style.display = "block";
+  importPreviewEl.innerHTML = "";
+  importActionsEl.style.display = "none";
+  importActionBtn.disabled = true;
+  importResults = [];
+
+  // Process each URL
+  processUrls(urls, 0);
+});
+
+async function processUrls(urls, index) {
+  if (index >= urls.length) {
+    importProgressEl.style.display = "none";
+    importActionBtn.disabled = false;
+    importActionsEl.style.display = "block";
+    return;
+  }
+
+  const url = urls[index];
+  const pct = Math.round(((index) / urls.length) * 100);
+  progressFill.style.width = pct + "%";
+  progressText.textContent = `กำลังดึงข้อมูล ${index + 1}/${urls.length}...`;
+
+  // Add a placeholder card
+  const cardIdx = importResults.length;
+  importResults.push({ url, status: "pending", data: null });
+  renderImportCard(cardIdx, url);
+
+  // Try to extract data
+  const data = await extractProductData(url);
+  importResults[cardIdx].data = data;
+  importResults[cardIdx].status = data ? "success" : "error";
+
+  progressFill.style.width = Math.round(((index + 1) / urls.length) * 100) + "%";
+  progressText.textContent = `ดึงข้อมูล ${index + 1}/${urls.length} เสร็จ`;
+
+  renderImportCard(cardIdx, url, data);
+
+  // Small delay between requests
+  await new Promise(r => setTimeout(r, 500));
+
+  processUrls(urls, index + 1);
+}
+
+async function extractProductData(url) {
+  try {
+    // Use a CORS proxy to fetch the Shopee page
+    const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+    const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
+    
+    if (!response.ok) throw new Error("Fetch failed");
+    const html = await response.text();
+
+    if (html.length < 1000) throw new Error("Empty response");
+
+    // Extract Open Graph data
+    const ogTitle = extractMeta(html, "og:title");
+    const ogImage = extractMeta(html, "og:image");
+    const ogDesc = extractMeta(html, "og:description");
+
+    // Extract title from <title> tag
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
+    const pageTitle = titleMatch ? titleMatch[1].trim() : ogTitle || "";
+
+    // Clean title (remove " | Shopee Thailand" etc)
+    let title = pageTitle.replace(/\s*\|\s*Shopee.*$/i, "").trim();
+
+    // Extract price from page
+    let price = 0;
+    let originalPrice = null;
+    
+    // Try to find price in HTML
+    const priceMatches = html.match(/฿\s*([\d,]+)/g);
+    if (priceMatches) {
+      const prices = priceMatches.map(p => parseInt(p.replace(/[^\d]/g, "")));
+      if (prices.length > 0) {
+        prices.sort((a, b) => a - b);
+        price = prices[0]; // lowest price is likely the product price
+      }
+    }
+
+    // Try to find original price (higher price that's struck through)
+    const origMatches = html.match(/"price_before_discount"\s*:\s*(\d+)/g);
+    if (origMatches) {
+      const origVals = origMatches.map(m => {
+        const val = parseInt(m.match(/\d+/)[0]);
+        return val > 1000 ? val / 100000 : val;
+      });
+      if (origVals.length > 0) {
+        originalPrice = Math.max(...origVals);
+      }
+    }
+
+    // Try to find price from JSON-LD or script tags
+    const jsonLdMatch = html.match(/"price"\s*:\s*"?([\d.,]+)/);
+    if (jsonLdMatch && price === 0) {
+      price = parseFloat(jsonLdMatch[1]);
+    }
+
+    // Extract shop name
+    let shop = "";
+    const shopMatch = html.match(/"shop_name"\s*:\s*"([^"]+)"/);
+    if (shopMatch) shop = shopMatch[1];
+
+    // Determine category
+    let category = "beauty"; // default
+    const titleLower = title.toLowerCase();
+    if (titleLower.match(/\u0e17\u0e32\u0e07|\u0e23\u0e16|\u0e21\u0e2d\u0e40\u0e15\u0e2d\u0e23\u0e4c|\u0e23\u0e16\u0e01\u0e23\u0e30|\u0e25\u0e49\u0e2d\u0e22\u0e43\u0e2b\u0e0d\u0e48|\u0e2a\u0e40\u0e1b\u0e23\u0e22\u0e4c|\u0e22\u0e07|\u0e23\u0e16\u0e22\u0e19\u0e15\u0e4c/)) {
+      category = "auto";
+    } else if (titleLower.match(/\u0e41\u0e1f\u0e0a\u0e31\u0e48\u0e19|\u0e40\u0e2a\u0e37\u0e49\u0e2d|\u0e01\u0e23\u0e30\u0e40\u0e1b\u0e32|\u0e23\u0e2d\u0e07\u0e40\u0e17\u0e49\u0e32|\u0e1f\u0e32\u0e2b\u0e19\u0e32|\u0e2a\u0e23\u0e2d\u0e07\u0e40\u0e17\u0e49\u0e32|\u0e04\u0e23\u0e35\u0e14|\u0e40\u0e04\u0e23\u0e35\u0e14|\u0e21\u0e37\u0e2d\u0e16\u0e37\u0e2d|\u0e2b\u0e39\u0e02\u0e2d\u0e07|\u0e23\u0e49\u0e2d\u0e07\u0e40\u0e17\u0e49\u0e32/)) {
+      category = "fashion";
+    } else if (titleLower.match(/\u0e2b\u0e39\u0e1f\u0e31\u0e07|\u0e25\u0e33\u0e42\u0e1e\u0e07|\u0e21\u0e2d\u0e19\u0e34\u0e40\u0e15\u0e2d\u0e23\u0e4c|\u0e21\u0e2d\u0e1a\u0e44\u0e25|\u0e41\u0e25\u0e47\u0e1b\u0e17\u0e47\u0e2d\u0e1b|\u0e40\u0e23\u0e32\u0e32\u0e4c|\u0e21\u0e32\u0e27\u0e19\u0e4c|\u0e04\u0e2d\u0e21|\u0e40\u0e01\u0e21/)) {
+      category = "tech";
+    } else if (titleLower.match(/\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07\u0e02\u0e2d\u0e07\u0e43\u0e0a\u0e49|\u0e21\u0e48\u0e32\u0e19|\u0e19\u0e2d\u0e19|\u0e02\u0e2d\u0e07\u0e43\u0e0a\u0e49|\u0e2b\u0e49\u0e2d\u0e07|\u0e1a\u0e49\u0e32\u0e19/)) {
+      category = "home";
+    }
+
+    // If we couldn't extract price, try a different approach
+    if (price === 0) {
+      const pricePattern = html.match(/price[\d_]*\s*:\s*(\d{2,})/);
+      if (pricePattern) {
+        const p = parseInt(pricePattern[1]);
+        price = p > 100000 ? Math.round(p / 100000) : p;
+      }
+    }
+
+    // Extract image
+    let image = ogImage || "";
+    if (image && !image.startsWith("http")) {
+      image = "https:" + image;
+    }
+
+    return {
+      title: title || "สินค้า Shopee",
+      image: image,
+      price: price,
+      originalPrice: originalPrice,
+      url: url,
+      shop: shop || "",
+      category: category,
+      highlight: ogDesc || "",
+      reason: ""
+    };
+  } catch (e) {
+    console.log("Extract error for", url, e.message);
+    return null;
+  }
+}
+
+function extractMeta(html, property) {
+  const match = html.match(new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`));
+  if (match) return match[1];
+  const match2 = html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*property=["']${property}["']`));
+  if (match2) return match2[1];
+  return "";
+}
+
+function renderImportCard(idx, url, data) {
+  const preview = importPreviewEl;
+  
+  // Remove existing card for this index
+  const existing = document.getElementById(`import-card-${idx}`);
+  if (existing) existing.remove();
+
+  const card = document.createElement("div");
+  card.id = `import-card-${idx}`;
+  card.className = `import-preview-card ${data ? (data.error ? 'error' : 'success') : 'pending'}`;
+
+  if (!data) {
+    // Fallback: show manual edit fields
+    card.innerHTML = `
+      <div style="width:80px;height:80px;border-radius:10px;background:#eee;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;">\u274c</div>
+      <div class="preview-info">
+        <input type="text" class="import-card-field" id="import-title-${idx}" placeholder="ชื่อสินค้า (กรอกเอง)" value="">
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <input type="number" class="import-card-field" id="import-price-${idx}" placeholder="ราคา (บาท)" value="" style="width:120px;">
+          <select class="import-card-field" id="import-cat-${idx}" style="width:160px;">
+            <option value="beauty">\u{1f484} ความงาม</option>
+            <option value="fashion">\u{1f455} แฟชั่น</option>
+            <option value="tech">\u{1f4f1} ไอที</option>
+            <option value="home">\u{1f3e0} ของใช้</option>
+            <option value="auto">\u{1f697} ยานยนต์</option>
+          </select>
+        </div>
+        <span class="preview-status fail">ดึงข้อมูลไม่สำเร็จ \u2014 กรุณากรอกเอง</span>
+      </div>
+      <button class="import-card-remove" onclick="removeImportCard(${idx})" title="ลบ">\u2715</button>
+    `;
+  } else {
+    card.className = "import-preview-card success";
+    card.innerHTML = `
+      <img class="preview-img" src="${data.image}" alt="" onerror="this.style.display='none'">
+      <div class="preview-info">
+        <input type="text" class="import-card-field" id="import-title-${idx}" value="${data.title.replace(/"/g, '&quot;')}">
+        <div style="display:flex;gap:8px;margin-top:6px;align-items:center;">
+          <span class="preview-price">\u0e3f${data.price.toLocaleString()}</span>
+          ${data.originalPrice ? `<span style="color:#bbb;text-decoration:line-through;font-size:0.85rem;">\u0e3f${data.originalPrice.toLocaleString()}</span>` : ""}
+        </div>
+        <select class="import-card-field" id="import-cat-${idx}" style="width:160px;margin-top:6px;">
+          <option value="beauty" ${data.category === 'beauty' ? 'selected' : ''}>\u{1f484} ความงาม</option>
+          <option value="fashion" ${data.category === 'fashion' ? 'selected' : ''}>\u{1f455} แฟชั่น</option>
+          <option value="tech" ${data.category === 'tech' ? 'selected' : ''}>\u{1f4f1} ไอที</option>
+          <option value="home" ${data.category === 'home' ? 'selected' : ''}>\u{1f3e0} ของใช้</option>
+          <option value="auto" ${data.category === 'auto' ? 'selected' : ''}>\u{1f697} ยานยนต์</option>
+        </select>
+        <span class="preview-status ok">\u2705 ดึงข้อมูลสำเร็จ</span>
+      </div>
+      <button class="import-card-remove" onclick="removeImportCard(${idx})" title="ลบ">\u2715</button>
+    `;
+  }
+
+  preview.appendChild(card);
+}
+
+function removeImportCard(idx) {
+  importResults[idx] = { url: importResults[idx].url, status: 'removed', data: null };
+  const card = document.getElementById(`import-card-${idx}`);
+  if (card) {
+    card.style.transition = 'opacity 0.3s, transform 0.3s';
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(20px)';
+    setTimeout(() => card.remove(), 300);
+  }
+}
+
+importSaveAll.addEventListener("click", function() {
+  let savedCount = 0;
+  let skippedCount = 0;
+
+  // Find the next available ID
+  let maxId = products.length > 0 ? Math.max(...products.map(p => p.id)) : 0;
+
+  importResults.forEach((item, idx) => {
+    // Skip removed cards
+    if (item.status === 'removed') {
+      skippedCount++;
+      return;
+    }
+
+    const titleEl = document.getElementById(`import-title-${idx}`);
+    const priceEl = document.getElementById(`import-price-${idx}`);
+    const catEl = document.getElementById(`import-cat-${idx}`);
+
+    const title = titleEl ? titleEl.value.trim() : (item.data ? item.data.title : "");
+    const price = priceEl ? (parseInt(priceEl.value) || 0) : (item.data ? item.data.price : 0);
+    const category = catEl ? catEl.value.trim() : (item.data ? item.data.category : "beauty");
+
+    if (!title || price <= 0) {
+      skippedCount++;
+      return;
+    }
+
+    // Generate next ID
+    maxId++;
+
+    // Create new product
+    const newProduct = {
+      id: maxId,
+      title: title,
+      price: price,
+      originalPrice: item.data ? item.data.originalPrice : null,
+      image: item.data ? item.data.image : "",
+      url: item.url,
+      category: category || "beauty",
+      tags: [],
+      clicks: 0,
+      highlight: item.data ? (item.data.highlight || "") : "",
+      reason: ""
+    };
+
+    // Add to products array
+    products.push(newProduct);
+    savedCount++;
+  });
+
+  if (savedCount === 0) {
+    alert("ไม่มีการบันทึกสินค้า — กรุณากรอกชื่อและราคาอย่างน้อย 1 รายการ หรือลบรายการที่ไม่ต้องการ\n\nหมายเหตุ: ระบบจะบันทึกข้อมูลไว้ในหน่วยความจำเท่านั้น\nหากต้องการบันทึกถาวร ต้องแก้โค้ด ads.js ครับ");
+    return;
+  }
+
+  // Show success with details
+  let msg = `บันทึกสินค้าใหม่ ${savedCount} รายการแล้ว!`;
+  if (skippedCount > 0) msg += `\n(ข้าม ${skippedCount} รายการ)`;
+  msg += `\n\nหมายเหตุ: ข้อมูลถูกเพิ่มในหน่วยความจำเท่านั้น\nหากต้องการบันทึกถาวร ต้องแก้โค้ด ads.js ครับ`;
+  alert(msg);
+
+  // Close modal and refresh
+  closeImport();
+  refreshGrid();
+});
+
 // ============ INIT ============
 refreshGrid();

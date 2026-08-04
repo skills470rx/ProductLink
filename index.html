@@ -183,11 +183,37 @@
     <button class="cat-btn" data-cat="auto">🚗 ยานยนต์</button>
   </nav>
 
-  <!-- Random Button -->
+  <!-- Import Button -->
   <div class="random-section">
-    <button class="random-btn" id="randomBtn">
+    <button class="random-btn import-trigger-btn" id="importBtn">
+      <span class="dice-icon">⬇️</span> เพิ่มสินค้า
+    </button>
+    <button class="random-btn" id="randomBtn" style="margin-left:12px;">
       <span class="dice-icon">🎲</span> สุ่มสินค้า
     </button>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay" id="importOverlay">
+    <div class="modal import-modal">
+      <button class="modal-close" id="importClose">&times;</button>
+      <div class="import-header">
+        <h2>⬇️ เพิ่มสินค้า</h2>
+        <p class="import-desc">วางลิงก์ Shopee 1 บรรทัดหรือหลายบรรทัด แล้วกด Import</p>
+      </div>
+      <div class="import-body">
+        <textarea id="importUrls" class="import-textarea" placeholder="วางลิงก์ Shopee ที่นี่&#10;&#10;https://s.shopee.co.th/xxxxxxxx&#10;https://shopee.co.th/product/xxxxx/xxxxx&#10;https://s.shopee.co.th/yyyyyyyy"></textarea>
+        <button class="import-action-btn" id="importActionBtn">⬇️ Import</button>
+      </div>
+      <div class="import-progress" id="importProgress" style="display:none;">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <p class="progress-text" id="progressText">กำลังดึงข้อมูล...</p>
+      </div>
+      <div class="import-preview" id="importPreview"></div>
+      <div class="import-actions" id="importActions" style="display:none;">
+        <button class="import-btn-save" id="importSaveAll">✅ บันทึกทั้งหมด</button>
+      </div>
+    </div>
   </div>
 
   <!-- Results Count -->
