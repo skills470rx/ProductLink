@@ -1094,12 +1094,27 @@ async function processUrls(urls, index) {
 
 async function extractProductData(url) {
   try {
-    // Use a CORS proxy to fetch the Shopee page
-    const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
-    const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-    
-    if (!response.ok) throw new Error("Fetch failed");
-    const html = await response.text();
+    // Fetch through our own Netlify Function. This removes the browser CORS/proxy dependency.
+    const endpoint = "/.netlify/functions/shopee?url=" + encodeURIComponent(url);
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+      signal: AbortSignal.timeout(30000),
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      let message = `Import failed (${response.status})`;
+      try {
+        const err = await response.json();
+        if (err && err.error) message = err.error;
+      } catch (_) {}
+      throw new Error(message);
+    }
+
+    const data = await response.json();
+    if (!data || !data.title || !data.price) throw new Error("ข้อมูลสินค้าไม่ครบ");
+    return data;
 
     if (html.length < 1000) throw new Error("Empty response");
 
@@ -1273,15 +1288,15 @@ function removeImportCard(idx) {
   }
 }
 
-importSaveAll.addEventListener("click", function() {
+importSaveAll.addEventListener("click", async function() {
   let savedCount = 0;
   let skippedCount = 0;
+  const pendingProducts = [];
 
-  // Find the next available ID
-  let maxId = products.length > 0 ? Math.max(...products.map(p => p.id)) : 0;
+  // Find the next available ID from built-in + already loaded products.
+  let maxId = products.length > 0 ? Math.max(...products.map(p => Number(p.id) || 0)) : 0;
 
   importResults.forEach((item, idx) => {
-    // Skip removed cards
     if (item.status === 'removed') {
       skippedCount++;
       return;
@@ -1300,14 +1315,11 @@ importSaveAll.addEventListener("click", function() {
       return;
     }
 
-    // Generate next ID
     maxId++;
-
-    // Create new product
-    const newProduct = {
+    pendingProducts.push({
       id: maxId,
-      title: title,
-      price: price,
+      title,
+      price,
       originalPrice: item.data ? item.data.originalPrice : null,
       image: item.data ? item.data.image : "",
       url: item.url,
@@ -1316,28 +1328,78 @@ importSaveAll.addEventListener("click", function() {
       clicks: 0,
       highlight: item.data ? (item.data.highlight || "") : "",
       reason: ""
-    };
-
-    // Add to products array
-    products.push(newProduct);
-    savedCount++;
+    });
   });
 
-  if (savedCount === 0) {
-    alert("ไม่มีการบันทึกสินค้า — กรุณากรอกชื่อและราคาอย่างน้อย 1 รายการ หรือลบรายการที่ไม่ต้องการ\n\nหมายเหตุ: ระบบจะบันทึกข้อมูลไว้ในหน่วยความจำเท่านั้น\nหากต้องการบันทึกถาวร ต้องแก้โค้ด ads.js ครับ");
+  if (pendingProducts.length === 0) {
+    alert("ไม่มีการบันทึกสินค้า — กรุณากรอกชื่อและราคาอย่างน้อย 1 รายการ หรือลบรายการที่ไม่ต้องการ");
     return;
   }
 
-  // Show success with details
-  let msg = `บันทึกสินค้าใหม่ ${savedCount} รายการแล้ว!`;
-  if (skippedCount > 0) msg += `\n(ข้าม ${skippedCount} รายการ)`;
-  msg += `\n\nหมายเหตุ: ข้อมูลถูกเพิ่มในหน่วยความจำเท่านั้น\nหากต้องการบันทึกถาวร ต้องแก้โค้ด ads.js ครับ`;
-  alert(msg);
+  importSaveAll.disabled = true;
+  importSaveAll.textContent = "กำลังบันทึก...";
 
-  // Close modal and refresh
-  closeImport();
-  refreshGrid();
+  try {
+    // Permanent save: Netlify Function -> Netlify Blobs. No GitHub commit and no deploy.
+    const response = await fetch("/.netlify/functions/products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({ products: pendingProducts }),
+      signal: AbortSignal.timeout(20000)
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || `บันทึกไม่สำเร็จ (${response.status})`);
+    }
+
+    pendingProducts.forEach(p => products.push(p));
+    savedCount = pendingProducts.length;
+
+    let msg = `บันทึกสินค้าใหม่ ${savedCount} รายการแล้ว!\n\n✓ บันทึกถาวรใน Storage แล้ว\n✓ ไม่ต้อง Deploy\n✓ ไม่แก้ GitHub ทุกครั้งที่เพิ่มสินค้า`;
+    if (skippedCount > 0) msg += `\n(ข้าม ${skippedCount} รายการ)`;
+    alert(msg);
+
+    closeImport();
+    refreshGrid();
+  } catch (e) {
+    console.error("Product save error:", e);
+    alert(`บันทึกสินค้าไม่สำเร็จ\n\n${e.message || "เกิดข้อผิดพลาด"}\n\nสินค้ายังไม่ได้เพิ่มลงหน้าเว็บ เพื่อป้องกันข้อมูลหาย`);
+  } finally {
+    importSaveAll.disabled = false;
+    importSaveAll.textContent = "บันทึกทั้งหมด";
+  }
 });
 
+// Load products saved in Netlify Blobs without replacing the built-in products.
+async function loadStoredProducts() {
+  try {
+    const response = await fetch("/.netlify/functions/products", {
+      headers: { "Accept": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const stored = Array.isArray(data.products) ? data.products : [];
+
+    const existingUrls = new Set(products.map(p => p.url));
+    stored.forEach(p => {
+      if (p && p.title && Number(p.price) > 0 && !existingUrls.has(p.url)) {
+        products.push(p);
+      }
+    });
+  } catch (e) {
+    // The built-in catalog still works if Storage is temporarily unavailable.
+    console.warn("Stored products unavailable:", e.message);
+  }
+}
+
 // ============ INIT ============
+// Render built-in products immediately, then merge persistent Storage products.
 refreshGrid();
+loadStoredProducts().then(refreshGrid);
