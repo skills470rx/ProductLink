@@ -18,4 +18,4 @@ Productlink 🤣
 │      ดูสินค้า →            │
 ╰────────────────────────────╯
 
-https://productink.netlify.app/
+https://skills470rx.netlify.app/
