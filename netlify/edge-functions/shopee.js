@@ -339,82 +339,149 @@ async function fetchJinaProduct(finalUrl, originalUrl) {
     return null;
   }
 }
+function productFromHtml(html, originalUrl, finalUrl) {
+  const rawTitle = meta(html, 'og:title') || meta(html, 'twitter:title') || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
+  const title = decodeHtml(rawTitle).replace(/\s*[|｜-]\s*Shopee.*$/i, '').trim();
+  const image = meta(html, 'og:image') || meta(html, 'twitter:image');
+  const description = meta(html, 'og:description') || meta(html, 'description');
+  const price = firstPrice(html);
+  if (!title || !price) return null;
+  const originalMatches = [...html.matchAll(/"price_before_discount"\s*:\s*(\d+)/g)]
+    .map(m => Number(m[1]) > 1000 ? Number(m[1]) / 100000 : Number(m[1]))
+    .filter(n => n > price && n < 10000000);
+  return {
+    title,
+    image: image || '',
+    price,
+    originalPrice: originalMatches.length ? Math.max(...originalMatches) : null,
+    url: originalUrl,
+    category: categoryFromTitle(title),
+    highlight: description || '',
+    reason: '',
+    source: 'shopee-page',
+    resolvedUrl: finalUrl
+  };
+}
+
 async function fetchShopee(url) {
   const finalUrl = await resolveShopeeUrl(url);
   const ids = extractProductIds(finalUrl) || extractProductIds(url);
+  const diagnostics = [];
 
-  const apiTask = fetchApiProduct(ids, url, finalUrl);
-  const jinaTask = fetchJinaProduct(finalUrl, url);
-  const htmlTasks = [
-    fetch(finalUrl, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(3800),
-      headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8' }
-    }).then(async r => { if (!r.ok) throw new Error('Shopee HTTP ' + r.status); return r.text(); }),
-    fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(finalUrl), {
-      signal: AbortSignal.timeout(3800),
-      headers: { 'Accept': 'text/html,application/xhtml+xml' }
-    }).then(async r => { if (!r.ok) throw new Error('Proxy HTTP ' + r.status); return r.text(); })
-  ];
-
-  const [apiResult, jinaResult, htmlResults] = await Promise.all([
-    apiTask,
-    jinaTask,
-    Promise.allSettled(htmlTasks)
-  ]);
-  if (apiResult) return { product: apiResult, finalUrl };
-  if (jinaResult) return { product: jinaResult, finalUrl };
-  for (const result of htmlResults) {
-    if (result.status === 'fulfilled' && result.value && result.value.length >= 500) {
-      return { html: result.value, finalUrl };
+  const apiTask = (async () => {
+    if (!ids) return null;
+    const endpoints = [
+      'https://shopee.co.th/api/v4/pdp/get_pc?shop_id=' + ids.shopId + '&item_id=' + ids.itemId + '&tz_offset_minutes=420&detail_level=0',
+      'https://shopee.co.th/api/v4/item/get?shopid=' + ids.shopId + '&itemid=' + ids.itemId
+    ];
+    const attempts = await Promise.allSettled(endpoints.map(async (endpoint, index) => {
+      const response = await fetch(endpoint, {
+        signal: AbortSignal.timeout(4200),
+        headers: {
+          'User-Agent': UA,
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8',
+          'Referer': finalUrl,
+          'x-api-source': 'pc',
+          'x-requested-with': 'XMLHttpRequest'
+        }
+      });
+      if (!response.ok) throw new Error('api' + (index + 1) + '=' + response.status);
+      const payload = await response.json();
+      const product = normalizeApiProduct(payload, url, finalUrl);
+      if (!product) throw new Error('api' + (index + 1) + '=no-data');
+      return product;
+    }));
+    for (const r of attempts) {
+      if (r.status === 'fulfilled' && r.value) return r.value;
+      if (r.status === 'rejected') diagnostics.push(String(r.reason?.message || r.reason));
     }
-  }
-  const resolved = finalUrl !== url ? finalUrl : 'unresolved';
-  throw new Error('Shopee import failed after resolver/API/page fallbacks; resolved=' + resolved);
+    return null;
+  })();
+
+  const jinaTask = (async () => {
+    try {
+      const response = await fetch('https://r.jina.ai/' + finalUrl, {
+        signal: AbortSignal.timeout(4200),
+        headers: { 'Accept': 'text/plain' }
+      });
+      if (!response.ok) { diagnostics.push('jina=' + response.status); return null; }
+      const text = await response.text();
+      const titleRaw = text.match(/^Title:\s*(.+)$/mi)?.[1] || '';
+      const title = decodeHtml(titleRaw).replace(/\s*[|｜-]\s*Shopee.*$/i, '').trim();
+      const prices = [...text.matchAll(/฿\s*([\d,]+(?:\.\d+)?)/g)]
+        .map(m => Number(m[1].replace(/,/g, '')))
+        .filter(n => Number.isFinite(n) && n > 0 && n < 10000000);
+      const price = prices.length ? Math.min(...prices) : 0;
+      const image = text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/i)?.[1] || '';
+      if (!title || !price) { diagnostics.push('jina=no-data(len:' + text.length + ')'); return null; }
+      return { title, image, price, originalPrice: null, url, category: categoryFromTitle(title), highlight: '', reason: '', source: 'jina-reader', resolvedUrl: finalUrl };
+    } catch (e) {
+      diagnostics.push('jina=' + (e?.name || e?.message || 'error'));
+      return null;
+    }
+  })();
+
+  const pageAgents = [
+    ['chrome', UA],
+    ['googlebot', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'],
+    ['twitterbot', 'Twitterbot/1.0'],
+    ['facebookbot', 'facebookexternalhit/1.1']
+  ];
+  const pageTasks = pageAgents.map(async ([label, userAgent]) => {
+    try {
+      const response = await fetch(finalUrl, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(4200),
+        headers: { 'User-Agent': userAgent, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8' }
+      });
+      const html = await response.text();
+      if (!response.ok) { diagnostics.push(label + '=' + response.status); return null; }
+      const product = productFromHtml(html, url, response.url || finalUrl);
+      if (!product) diagnostics.push(label + '=no-data(len:' + html.length + ')');
+      return product;
+    } catch (e) {
+      diagnostics.push(label + '=' + (e?.name || e?.message || 'error'));
+      return null;
+    }
+  });
+
+  const proxyTask = (async () => {
+    try {
+      const response = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(finalUrl), {
+        signal: AbortSignal.timeout(4200),
+        headers: { 'Accept': 'text/html,application/xhtml+xml' }
+      });
+      const html = await response.text();
+      if (!response.ok) { diagnostics.push('proxy=' + response.status); return null; }
+      const product = productFromHtml(html, url, finalUrl);
+      if (!product) diagnostics.push('proxy=no-data(len:' + html.length + ')');
+      return product;
+    } catch (e) {
+      diagnostics.push('proxy=' + (e?.name || e?.message || 'error'));
+      return null;
+    }
+  })();
+
+  const results = await Promise.all([apiTask, jinaTask, ...pageTasks, proxyTask]);
+  for (const product of results) if (product) return { product, finalUrl };
+
+  const shortResolved = finalUrl !== url ? finalUrl.replace(/^https?:\/\//, '').slice(0, 100) : 'unresolved';
+  throw new Error('Shopee blocked/no product data | resolved=' + shortResolved + ' | ids=' + (ids ? 'yes' : 'no') + ' | ' + diagnostics.slice(0, 8).join(', '));
 }
 export default async (req) => {
   try {
-    if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
-
+    if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
     const requestUrl = new URL(req.url);
-    const url = requestUrl.searchParams.get("url")?.trim();
+    const url = requestUrl.searchParams.get('url')?.trim();
     if (!url || !/^https?:\/\/(?:[^/]+\.)?shopee\.(?:co\.th|com)(?:\/|$)/i.test(url)) {
-      return json({ error: "ลิงก์ Shopee ไม่ถูกต้อง" }, 400);
+      return json({ error: 'ลิงก์ Shopee ไม่ถูกต้อง' }, 400);
     }
-
     const fetched = await fetchShopee(url);
-    if (fetched.product) return json(fetched.product);
-    const { html, finalUrl } = fetched;
-    const rawTitle = meta(html, "og:title") || meta(html, "twitter:title") || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || "");
-    const title = decodeHtml(rawTitle).replace(/\s*\|\s*Shopee.*$/i, "").trim();
-    const image = meta(html, "og:image") || meta(html, "twitter:image");
-    const description = meta(html, "og:description") || meta(html, "description");
-    const price = firstPrice(html);
-
-    const originalMatches = [...html.matchAll(/"price_before_discount"\s*:\s*(\d+)/g)]
-      .map(m => Number(m[1]) > 1000 ? Number(m[1]) / 100000 : Number(m[1]))
-      .filter(n => n > price && n < 10000000);
-    const originalPrice = originalMatches.length ? Math.max(...originalMatches) : null;
-
-    if (!title || !price) {
-      throw new Error("Shopee page ไม่มีชื่อหรือราคาในรูปแบบที่อ่านได้");
-    }
-
-    return json({
-      title,
-      image: image || "",
-      price,
-      originalPrice,
-      url: finalUrl || url,
-      category: categoryFromTitle(title),
-      highlight: description || "",
-      reason: ""
-    });
+    return json(fetched.product);
   } catch (error) {
-    console.error("shopee import error", error);
-    return json({ error: error?.message || "ดึงข้อมูล Shopee ไม่สำเร็จ" }, 502);
+    console.error('shopee edge import error', error);
+    return json({ error: error?.message || 'ดึงข้อมูล Shopee ไม่สำเร็จ' }, 502);
   }
 };
-
-
 export const config = { path: "/api/shopee" };
