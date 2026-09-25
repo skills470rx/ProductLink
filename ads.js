@@ -1096,7 +1096,7 @@ async function processUrls(urls, index) {
 
 async function extractProductData(url) {
   try {
-    const endpoint = '/.netlify/functions/shopee?url=' + encodeURIComponent(url);
+    const endpoint = '/api/shopee?url=' + encodeURIComponent(url);
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
