@@ -55,49 +55,152 @@ function categoryFromTitle(title) {
   return "beauty";
 }
 
-async function fetchShopee(url) {
-  const attempts = [
-    { headers: { "User-Agent": UA, "Accept": "text/html,application/xhtml+xml", "Accept-Language": "th-TH,th;q=0.9,en;q=0.8" } },
-    { headers: { "User-Agent": UA, "Accept": "text/html,application/xhtml+xml" } }
-  ];
-
-  let lastError = "";
-  for (let i = 0; i < attempts.length; i++) {
-    try {
-      const response = await fetch(url, {
-        redirect: "follow",
-        signal: AbortSignal.timeout(12000),
-        ...attempts[i]
-      });
-      if (!response.ok) throw new Error(`Shopee HTTP ${response.status}`);
-      const html = await response.text();
-      if (html.length < 1000) throw new Error("Shopee returned an incomplete page");
-      return { html, finalUrl: response.url || url };
-    } catch (e) {
-      lastError = e?.message || "Fetch failed";
-      await new Promise(r => setTimeout(r, 500 * (i + 1)));
-    }
-  }
-
-  // Last-resort server-side proxy. The browser never talks to this proxy directly,
-  // so the import flow no longer depends on browser CORS.
+function extractProductIds(rawUrl) {
   try {
-    const proxy = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
-    const response = await fetch(proxy, {
-      signal: AbortSignal.timeout(15000),
-      headers: { "Accept": "text/html,application/xhtml+xml" }
-    });
-    if (!response.ok) throw new Error(`Proxy HTTP ${response.status}`);
-    const html = await response.text();
-    if (html.length < 1000) throw new Error("Proxy returned an incomplete page");
-    return { html, finalUrl: url };
-  } catch (e) {
-    lastError = `${lastError}; fallback: ${e?.message || "failed"}`;
-  }
-
-  throw new Error(lastError || "ไม่สามารถดึงหน้า Shopee ได้");
+    const u = new URL(rawUrl);
+    const path = decodeURIComponent(u.pathname);
+    const patterns = [
+      /\/product\/(\d+)\/(\d+)/i,
+      /(?:^|[-/])i\.(\d+)\.(\d+)(?:$|[/?#])/i,
+      /\/opaanlp\/(\d+)\/(\d+)/i
+    ];
+    for (const re of patterns) {
+      const m = path.match(re);
+      if (m) return { shopId: m[1], itemId: m[2] };
+    }
+    const shopId = u.searchParams.get('shopid') || u.searchParams.get('shop_id') || u.searchParams.get('shopId');
+    const itemId = u.searchParams.get('itemid') || u.searchParams.get('item_id') || u.searchParams.get('itemId');
+    if (/^\d+$/.test(shopId || '') && /^\d+$/.test(itemId || '')) return { shopId, itemId };
+  } catch (_) {}
+  return null;
 }
 
+function apiPrice(value) {
+  const n = Number(String(value ?? '').replace(/,/g, ''));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n >= 100000 ? n / 100000 : n;
+}
+
+function apiImage(value) {
+  if (!value) return '';
+  if (typeof value === 'object') value = value.image || value.image_id || value.url || value.image_url || '';
+  if (!value) return '';
+  const s = String(value);
+  return /^https?:\/\//i.test(s) ? s : 'https://down-th.img.susercontent.com/file/' + s;
+}
+
+function normalizeApiProduct(payload, originalUrl, finalUrl) {
+  const data = payload?.data || payload || {};
+  const item = data.item || payload?.item || data;
+  const productPrice = data.product_price?.price || {};
+  const before = data.product_price?.price_before_discount || {};
+  const title = item.title || item.name || data.name || '';
+  const price = apiPrice(productPrice.single_value ?? productPrice.range_min ?? item.price ?? data.price);
+  const originalRaw = apiPrice(before.single_value ?? before.range_min ?? item.price_before_discount ?? data.price_before_discount);
+  let image = item.image || data.image || '';
+  const images = data.product_images?.images || item.images || data.images;
+  if (!image && Array.isArray(images) && images.length) image = images[0];
+  if (!title || !price) return null;
+  return {
+    title: String(title).trim(),
+    image: apiImage(image),
+    price,
+    originalPrice: originalRaw > price ? originalRaw : null,
+    url: originalUrl,
+    category: categoryFromTitle(String(title)),
+    highlight: String(item.description || data.description || ''),
+    reason: '',
+    source: 'shopee-api',
+    resolvedUrl: finalUrl
+  };
+}
+
+function unwrapOriginLink(rawUrl) {
+  try {
+    const u = new URL(rawUrl);
+    const origin = u.searchParams.get('origin_link');
+    if (origin) return decodeURIComponent(origin);
+  } catch (_) {}
+  return rawUrl;
+}
+
+async function resolveShopeeUrl(rawUrl) {
+  let current = unwrapOriginLink(rawUrl);
+  if (extractProductIds(current)) return current;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const response = await fetch(current, {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(3500),
+        headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8' }
+      });
+      const location = response.headers.get('location');
+      if (!location) return response.url || current;
+      current = new URL(location, current).toString();
+      current = unwrapOriginLink(current);
+      if (extractProductIds(current)) return current;
+    } catch (_) {
+      break;
+    }
+  }
+  return current;
+}
+
+async function fetchApiProduct(ids, originalUrl, finalUrl) {
+  if (!ids) return null;
+  const endpoints = [
+    'https://shopee.co.th/api/v4/pdp/get_pc?shop_id=' + ids.shopId + '&item_id=' + ids.itemId + '&tz_offset_minutes=420&detail_level=0',
+    'https://shopee.co.th/api/v4/item/get?shopid=' + ids.shopId + '&itemid=' + ids.itemId
+  ];
+  const tasks = endpoints.map(async endpoint => {
+    const response = await fetch(endpoint, {
+      signal: AbortSignal.timeout(4500),
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8',
+        'Referer': finalUrl,
+        'x-api-source': 'pc',
+        'x-requested-with': 'XMLHttpRequest'
+      }
+    });
+    if (!response.ok) throw new Error('Shopee API HTTP ' + response.status);
+    const payload = await response.json();
+    const product = normalizeApiProduct(payload, originalUrl, finalUrl);
+    if (!product) throw new Error('Shopee API returned no usable product');
+    return product;
+  });
+  const results = await Promise.allSettled(tasks);
+  for (const result of results) if (result.status === 'fulfilled' && result.value) return result.value;
+  return null;
+}
+
+async function fetchShopee(url) {
+  const finalUrl = await resolveShopeeUrl(url);
+  const ids = extractProductIds(finalUrl) || extractProductIds(url);
+  const apiTask = fetchApiProduct(ids, url, finalUrl);
+
+  const htmlTasks = [
+    fetch(finalUrl, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(4500),
+      headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8' }
+    }).then(async r => { if (!r.ok) throw new Error('Shopee HTTP ' + r.status); return r.text(); }),
+    fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(finalUrl), {
+      signal: AbortSignal.timeout(4500),
+      headers: { 'Accept': 'text/html,application/xhtml+xml' }
+    }).then(async r => { if (!r.ok) throw new Error('Proxy HTTP ' + r.status); return r.text(); })
+  ];
+
+  const [apiResult, htmlResults] = await Promise.all([apiTask, Promise.allSettled(htmlTasks)]);
+  if (apiResult) return { product: apiResult, finalUrl };
+  for (const result of htmlResults) {
+    if (result.status === 'fulfilled' && result.value && result.value.length >= 500) {
+      return { html: result.value, finalUrl };
+    }
+  }
+  throw new Error(ids ? 'Shopee blocked both product API and page fetch' : 'Shopee link could not be resolved to a product');
+}
 export default async (req) => {
   try {
     if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -108,7 +211,9 @@ export default async (req) => {
       return json({ error: "ลิงก์ Shopee ไม่ถูกต้อง" }, 400);
     }
 
-    const { html, finalUrl } = await fetchShopee(url);
+    const fetched = await fetchShopee(url);
+    if (fetched.product) return json(fetched.product);
+    const { html, finalUrl } = fetched;
     const rawTitle = meta(html, "og:title") || meta(html, "twitter:title") || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || "");
     const title = decodeHtml(rawTitle).replace(/\s*\|\s*Shopee.*$/i, "").trim();
     const image = meta(html, "og:image") || meta(html, "twitter:image");
