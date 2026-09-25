@@ -159,70 +159,114 @@ function shoPeeCandidateFromHtml(html, baseUrl) {
 
 async function resolveViaMicrolink(rawUrl) {
   try {
-    const endpoint = 'https://api.microlink.io?url=' + encodeURIComponent(rawUrl);
-    const response = await fetch(endpoint, {
-      signal: AbortSignal.timeout(6000),
+    const response = await fetch('https://api.microlink.io?url=' + encodeURIComponent(rawUrl), {
+      signal: AbortSignal.timeout(3200),
       headers: { 'Accept': 'application/json' }
     });
     if (!response.ok) return '';
     const payload = await response.json();
-    const candidates = [
-      payload?.data?.url,
-      payload?.data?.publisher?.url,
-      payload?.data?.author?.url
-    ].filter(Boolean);
+    const candidates = [payload?.data?.url, payload?.data?.publisher?.url, payload?.data?.author?.url].filter(Boolean);
     for (const candidate of candidates) {
       try {
         const decoded = decodePossibleUrl(candidate);
         const u = new URL(decoded);
-        if (allowedShopeeHost(u.hostname) && (extractProductIds(decoded) || u.hostname !== 's.shopee.co.th')) return decoded;
+        if (allowedShopeeHost(u.hostname) && u.hostname !== 's.shopee.co.th') return decoded;
       } catch (_) {}
     }
   } catch (_) {}
   return '';
 }
 
-async function resolveShopeeUrl(rawUrl) {
-  let current = unwrapOriginLink(rawUrl);
-  if (extractProductIds(current)) return current;
-
-  for (let i = 0; i < 4; i++) {
-    try {
-      const response = await fetch(current, {
-        method: 'GET',
-        redirect: 'manual',
-        signal: AbortSignal.timeout(4500),
-        headers: {
-          'User-Agent': UA,
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8'
-        }
-      });
-
-      const location = response.headers.get('location');
-      if (location) {
-        current = unwrapOriginLink(new URL(location, current).toString());
-        if (extractProductIds(current)) return current;
-        continue;
-      }
-
-      const html = await response.text();
-      const candidate = shoPeeCandidateFromHtml(html, current);
-      if (candidate) {
-        current = unwrapOriginLink(candidate);
-        if (extractProductIds(current)) return current;
-        if (current !== rawUrl) continue;
-      }
-      if (extractProductIds(response.url || '')) return response.url;
-      break;
-    } catch (_) {
-      break;
+async function resolveViaDomainee(rawUrl) {
+  try {
+    const endpoint = 'https://api.domainee.dev/v1/tools/redirect-checker?url=' + encodeURIComponent(rawUrl);
+    const response = await fetch(endpoint, { signal: AbortSignal.timeout(3200), headers: { 'Accept': 'application/json' } });
+    if (!response.ok) return '';
+    const payload = await response.json();
+    const candidates = [payload?.data?.finalUrl, ...(payload?.data?.hops || []).map(h => h?.url)].filter(Boolean).reverse();
+    for (const candidate of candidates) {
+      try {
+        const decoded = decodePossibleUrl(candidate);
+        const u = new URL(decoded);
+        if (allowedShopeeHost(u.hostname) && u.hostname !== 's.shopee.co.th') return decoded;
+      } catch (_) {}
     }
-  }
+  } catch (_) {}
+  return '';
+}
 
-  const viaMicrolink = await resolveViaMicrolink(current || rawUrl);
-  if (viaMicrolink) return viaMicrolink;
-  return current || rawUrl;
+async function resolveViaRedirectCheck(rawUrl) {
+  try {
+    const endpoint = 'https://www.redirectcheck.org/api/check?url=' + encodeURIComponent(rawUrl) + '&ua=Googlebot';
+    const response = await fetch(endpoint, { signal: AbortSignal.timeout(3200), headers: { 'Accept': 'application/json' } });
+    if (!response.ok) return '';
+    const payload = await response.json();
+    const candidates = [
+      payload?.final_result?.final_url,
+      payload?.final_result?.canonical,
+      ...(payload?.redirects || []).flatMap(r => [r?.to, r?.from])
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      try {
+        const decoded = decodePossibleUrl(candidate);
+        const u = new URL(decoded);
+        if (allowedShopeeHost(u.hostname) && u.hostname !== 's.shopee.co.th') return decoded;
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return '';
+}
+
+async function resolveDirect(rawUrl) {
+  try {
+    const response = await fetch(rawUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(3200),
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8'
+      }
+    });
+    const finalUrl = unwrapOriginLink(response.url || rawUrl);
+    try {
+      const u = new URL(finalUrl);
+      if (allowedShopeeHost(u.hostname) && u.hostname !== 's.shopee.co.th') return finalUrl;
+    } catch (_) {}
+    const html = await response.text();
+    return shoPeeCandidateFromHtml(html, rawUrl);
+  } catch (_) {
+    return '';
+  }
+}
+
+async function resolveShopeeUrl(rawUrl) {
+  const unwrapped = unwrapOriginLink(rawUrl);
+  if (extractProductIds(unwrapped)) return unwrapped;
+  try {
+    const u = new URL(unwrapped);
+    if (allowedShopeeHost(u.hostname) && u.hostname !== 's.shopee.co.th') return unwrapped;
+  } catch (_) {}
+
+  const results = await Promise.allSettled([
+    resolveDirect(unwrapped),
+    resolveViaDomainee(unwrapped),
+    resolveViaRedirectCheck(unwrapped),
+    resolveViaMicrolink(unwrapped)
+  ]);
+
+  const candidates = results
+    .filter(r => r.status === 'fulfilled' && r.value)
+    .map(r => r.value);
+  for (const candidate of candidates) if (extractProductIds(candidate)) return candidate;
+  for (const candidate of candidates) {
+    try {
+      const u = new URL(candidate);
+      if (allowedShopeeHost(u.hostname) && u.hostname !== 's.shopee.co.th') return candidate;
+    } catch (_) {}
+  }
+  return unwrapped;
 }
 async function fetchApiProduct(ids, originalUrl, finalUrl) {
   if (!ids) return null;
@@ -253,31 +297,72 @@ async function fetchApiProduct(ids, originalUrl, finalUrl) {
   return null;
 }
 
+async function fetchJinaProduct(finalUrl, originalUrl) {
+  try {
+    const response = await fetch('https://r.jina.ai/' + finalUrl, {
+      signal: AbortSignal.timeout(3800),
+      headers: { 'Accept': 'text/plain' }
+    });
+    if (!response.ok) return null;
+    const text = await response.text();
+    if (!text || text.length < 100) return null;
+
+    const titleRaw = text.match(/^Title:\s*(.+)$/mi)?.[1] || '';
+    const title = decodeHtml(titleRaw).replace(/\s*[|｜-]\s*Shopee.*$/i, '').trim();
+    const prices = [...text.matchAll(/฿\s*([\d,]+(?:\.\d+)?)/g)]
+      .map(m => Number(m[1].replace(/,/g, '')))
+      .filter(n => Number.isFinite(n) && n > 0 && n < 10000000);
+    const price = prices.length ? Math.min(...prices) : 0;
+    const image = text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/i)?.[1] || '';
+    if (!title || !price) return null;
+    return {
+      title,
+      image,
+      price,
+      originalPrice: null,
+      url: originalUrl,
+      category: categoryFromTitle(title),
+      highlight: '',
+      reason: '',
+      source: 'jina-reader',
+      resolvedUrl: finalUrl
+    };
+  } catch (_) {
+    return null;
+  }
+}
 async function fetchShopee(url) {
   const finalUrl = await resolveShopeeUrl(url);
   const ids = extractProductIds(finalUrl) || extractProductIds(url);
-  const apiTask = fetchApiProduct(ids, url, finalUrl);
 
+  const apiTask = fetchApiProduct(ids, url, finalUrl);
+  const jinaTask = fetchJinaProduct(finalUrl, url);
   const htmlTasks = [
     fetch(finalUrl, {
       redirect: 'follow',
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(3800),
       headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8' }
     }).then(async r => { if (!r.ok) throw new Error('Shopee HTTP ' + r.status); return r.text(); }),
     fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(finalUrl), {
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(3800),
       headers: { 'Accept': 'text/html,application/xhtml+xml' }
     }).then(async r => { if (!r.ok) throw new Error('Proxy HTTP ' + r.status); return r.text(); })
   ];
 
-  const [apiResult, htmlResults] = await Promise.all([apiTask, Promise.allSettled(htmlTasks)]);
+  const [apiResult, jinaResult, htmlResults] = await Promise.all([
+    apiTask,
+    jinaTask,
+    Promise.allSettled(htmlTasks)
+  ]);
   if (apiResult) return { product: apiResult, finalUrl };
+  if (jinaResult) return { product: jinaResult, finalUrl };
   for (const result of htmlResults) {
     if (result.status === 'fulfilled' && result.value && result.value.length >= 500) {
       return { html: result.value, finalUrl };
     }
   }
-  throw new Error(ids ? 'Shopee blocked both product API and page fetch' : 'Shopee link could not be resolved to a product');
+  const resolved = finalUrl !== url ? finalUrl : 'unresolved';
+  throw new Error('Shopee import failed after resolver/API/page fallbacks; resolved=' + resolved);
 }
 export default async (req) => {
   try {
