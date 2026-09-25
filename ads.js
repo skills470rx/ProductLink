@@ -1077,8 +1077,10 @@ async function processUrls(urls, index) {
   renderImportCard(cardIdx, url);
 
   // Try to extract data
-  const data = await extractProductData(url);
+  const result = await extractProductData(url);
+  const data = result?.ok ? result.data : null;
   importResults[cardIdx].data = data;
+  importResults[cardIdx].error = result?.error || "";
   importResults[cardIdx].status = data ? "success" : "error";
 
   progressFill.style.width = Math.round(((index + 1) / urls.length) * 100) + "%";
@@ -1098,26 +1100,29 @@ async function extractProductData(url) {
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(12000),
       cache: 'no-store'
     });
 
     let data = null;
     try { data = await response.json(); } catch (_) {}
-
     if (!response.ok || !data || data.error) {
       throw new Error(data?.error || ('Import failed (' + response.status + ')'));
     }
     if (!data.title || !Number(data.price)) throw new Error('ข้อมูลสินค้าไม่ครบ');
 
     return {
-      ...data,
-      price: Number(data.price),
-      originalPrice: data.originalPrice ? Number(data.originalPrice) : null
+      ok: true,
+      data: {
+        ...data,
+        price: Number(data.price),
+        originalPrice: data.originalPrice ? Number(data.originalPrice) : null
+      }
     };
   } catch (e) {
-    console.error('Shopee import failed:', url, e?.message || e);
-    return null;
+    const message = e?.message || 'Unknown import error';
+    console.error('Shopee import failed:', url, message);
+    return { ok: false, error: message };
   }
 }
 function extractMeta(html, property) {
@@ -1155,10 +1160,12 @@ function renderImportCard(idx, url, data) {
             <option value="auto">\u{1f697} ยานยนต์</option>
           </select>
         </div>
-        <span class="preview-status fail">ดึงข้อมูลไม่สำเร็จ \u2014 กรุณากรอกเอง</span>
+        <span class="preview-status fail" id="import-error-${idx}">ดึงข้อมูลไม่สำเร็จ</span>
       </div>
       <button class="import-card-remove" onclick="removeImportCard(${idx})" title="ลบ">\u2715</button>
     `;
+    const errorEl = card.querySelector(`#import-error-${idx}`);
+    if (errorEl) errorEl.textContent = importResults[idx]?.error || "ดึงข้อมูลไม่สำเร็จ — กรุณากรอกเอง";
   } else {
     card.className = "import-preview-card success";
     card.innerHTML = `
