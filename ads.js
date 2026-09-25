@@ -1094,124 +1094,32 @@ async function processUrls(urls, index) {
 
 async function extractProductData(url) {
   try {
-    // Fetch through our own Netlify Function. This removes the browser CORS/proxy dependency.
-    const endpoint = "/.netlify/functions/shopee?url=" + encodeURIComponent(url);
+    const endpoint = '/.netlify/functions/shopee?url=' + encodeURIComponent(url);
     const response = await fetch(endpoint, {
-      method: "GET",
-      headers: { "Accept": "application/json" },
-      signal: AbortSignal.timeout(30000),
-      cache: "no-store"
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(15000),
+      cache: 'no-store'
     });
 
-    if (!response.ok) {
-      let message = `Import failed (${response.status})`;
-      try {
-        const err = await response.json();
-        if (err && err.error) message = err.error;
-      } catch (_) {}
-      throw new Error(message);
+    let data = null;
+    try { data = await response.json(); } catch (_) {}
+
+    if (!response.ok || !data || data.error) {
+      throw new Error(data?.error || ('Import failed (' + response.status + ')'));
     }
-
-    const data = await response.json();
-    if (!data || !data.title || !data.price) throw new Error("ข้อมูลสินค้าไม่ครบ");
-    return data;
-
-    if (html.length < 1000) throw new Error("Empty response");
-
-    // Extract Open Graph data
-    const ogTitle = extractMeta(html, "og:title");
-    const ogImage = extractMeta(html, "og:image");
-    const ogDesc = extractMeta(html, "og:description");
-
-    // Extract title from <title> tag
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-    const pageTitle = titleMatch ? titleMatch[1].trim() : ogTitle || "";
-
-    // Clean title (remove " | Shopee Thailand" etc)
-    let title = pageTitle.replace(/\s*\|\s*Shopee.*$/i, "").trim();
-
-    // Extract price from page
-    let price = 0;
-    let originalPrice = null;
-    
-    // Try to find price in HTML
-    const priceMatches = html.match(/฿\s*([\d,]+)/g);
-    if (priceMatches) {
-      const prices = priceMatches.map(p => parseInt(p.replace(/[^\d]/g, "")));
-      if (prices.length > 0) {
-        prices.sort((a, b) => a - b);
-        price = prices[0]; // lowest price is likely the product price
-      }
-    }
-
-    // Try to find original price (higher price that's struck through)
-    const origMatches = html.match(/"price_before_discount"\s*:\s*(\d+)/g);
-    if (origMatches) {
-      const origVals = origMatches.map(m => {
-        const val = parseInt(m.match(/\d+/)[0]);
-        return val > 1000 ? val / 100000 : val;
-      });
-      if (origVals.length > 0) {
-        originalPrice = Math.max(...origVals);
-      }
-    }
-
-    // Try to find price from JSON-LD or script tags
-    const jsonLdMatch = html.match(/"price"\s*:\s*"?([\d.,]+)/);
-    if (jsonLdMatch && price === 0) {
-      price = parseFloat(jsonLdMatch[1]);
-    }
-
-    // Extract shop name
-    let shop = "";
-    const shopMatch = html.match(/"shop_name"\s*:\s*"([^"]+)"/);
-    if (shopMatch) shop = shopMatch[1];
-
-    // Determine category
-    let category = "beauty"; // default
-    const titleLower = title.toLowerCase();
-    if (titleLower.match(/\u0e17\u0e32\u0e07|\u0e23\u0e16|\u0e21\u0e2d\u0e40\u0e15\u0e2d\u0e23\u0e4c|\u0e23\u0e16\u0e01\u0e23\u0e30|\u0e25\u0e49\u0e2d\u0e22\u0e43\u0e2b\u0e0d\u0e48|\u0e2a\u0e40\u0e1b\u0e23\u0e22\u0e4c|\u0e22\u0e07|\u0e23\u0e16\u0e22\u0e19\u0e15\u0e4c/)) {
-      category = "auto";
-    } else if (titleLower.match(/\u0e41\u0e1f\u0e0a\u0e31\u0e48\u0e19|\u0e40\u0e2a\u0e37\u0e49\u0e2d|\u0e01\u0e23\u0e30\u0e40\u0e1b\u0e32|\u0e23\u0e2d\u0e07\u0e40\u0e17\u0e49\u0e32|\u0e1f\u0e32\u0e2b\u0e19\u0e32|\u0e2a\u0e23\u0e2d\u0e07\u0e40\u0e17\u0e49\u0e32|\u0e04\u0e23\u0e35\u0e14|\u0e40\u0e04\u0e23\u0e35\u0e14|\u0e21\u0e37\u0e2d\u0e16\u0e37\u0e2d|\u0e2b\u0e39\u0e02\u0e2d\u0e07|\u0e23\u0e49\u0e2d\u0e07\u0e40\u0e17\u0e49\u0e32/)) {
-      category = "fashion";
-    } else if (titleLower.match(/\u0e2b\u0e39\u0e1f\u0e31\u0e07|\u0e25\u0e33\u0e42\u0e1e\u0e07|\u0e21\u0e2d\u0e19\u0e34\u0e40\u0e15\u0e2d\u0e23\u0e4c|\u0e21\u0e2d\u0e1a\u0e44\u0e25|\u0e41\u0e25\u0e47\u0e1b\u0e17\u0e47\u0e2d\u0e1b|\u0e40\u0e23\u0e32\u0e32\u0e4c|\u0e21\u0e32\u0e27\u0e19\u0e4c|\u0e04\u0e2d\u0e21|\u0e40\u0e01\u0e21/)) {
-      category = "tech";
-    } else if (titleLower.match(/\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07\u0e02\u0e2d\u0e07\u0e43\u0e0a\u0e49|\u0e21\u0e48\u0e32\u0e19|\u0e19\u0e2d\u0e19|\u0e02\u0e2d\u0e07\u0e43\u0e0a\u0e49|\u0e2b\u0e49\u0e2d\u0e07|\u0e1a\u0e49\u0e32\u0e19/)) {
-      category = "home";
-    }
-
-    // If we couldn't extract price, try a different approach
-    if (price === 0) {
-      const pricePattern = html.match(/price[\d_]*\s*:\s*(\d{2,})/);
-      if (pricePattern) {
-        const p = parseInt(pricePattern[1]);
-        price = p > 100000 ? Math.round(p / 100000) : p;
-      }
-    }
-
-    // Extract image
-    let image = ogImage || "";
-    if (image && !image.startsWith("http")) {
-      image = "https:" + image;
-    }
+    if (!data.title || !Number(data.price)) throw new Error('ข้อมูลสินค้าไม่ครบ');
 
     return {
-      title: title || "สินค้า Shopee",
-      image: image,
-      price: price,
-      originalPrice: originalPrice,
-      url: url,
-      shop: shop || "",
-      category: category,
-      highlight: ogDesc || "",
-      reason: ""
+      ...data,
+      price: Number(data.price),
+      originalPrice: data.originalPrice ? Number(data.originalPrice) : null
     };
   } catch (e) {
-    console.log("Extract error for", url, e.message);
+    console.error('Shopee import failed:', url, e?.message || e);
     return null;
   }
 }
-
 function extractMeta(html, property) {
   const match = html.match(new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`));
   if (match) return match[1];
