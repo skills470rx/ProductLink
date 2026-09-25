@@ -124,28 +124,106 @@ function unwrapOriginLink(rawUrl) {
   return rawUrl;
 }
 
+function decodePossibleUrl(value = '') {
+  let s = decodeHtml(String(value))
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\\//g, '/')
+    .replace(/\\u0026/gi, '&')
+    .replace(/&amp;/gi, '&')
+    .trim();
+  try { s = decodeURIComponent(s); } catch (_) {}
+  return s;
+}
+
+function shoPeeCandidateFromHtml(html, baseUrl) {
+  const candidates = [];
+  const refresh = html.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url\s*=\s*([^"'>]+)["']/i)
+    || html.match(/<meta[^>]+content=["'][^"']*url\s*=\s*([^"'>]+)["'][^>]+http-equiv=["']?refresh["']?/i);
+  if (refresh?.[1]) candidates.push(refresh[1]);
+
+  for (const m of html.matchAll(/(?:https?:\\\/\\\/|https?:\/\/)[^"'<>\s]+/gi)) candidates.push(m[0]);
+  for (const m of html.matchAll(/(?:origin_link|target_url|targetUrl|redirect_url|redirectUrl|deep_link|deepLink)["']?\s*[:=]\s*["']([^"']+)["']/gi)) candidates.push(m[1]);
+  const canonical = meta(html, 'og:url') || (html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1] || '');
+  if (canonical) candidates.unshift(canonical);
+
+  for (const raw of candidates) {
+    try {
+      const decoded = decodePossibleUrl(raw);
+      const absolute = new URL(decoded, baseUrl).toString();
+      const u = new URL(absolute);
+      if (allowedShopeeHost(u.hostname) && (extractProductIds(absolute) || u.hostname !== 's.shopee.co.th')) return absolute;
+    } catch (_) {}
+  }
+  return '';
+}
+
+async function resolveViaMicrolink(rawUrl) {
+  try {
+    const endpoint = 'https://api.microlink.io?url=' + encodeURIComponent(rawUrl);
+    const response = await fetch(endpoint, {
+      signal: AbortSignal.timeout(6000),
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!response.ok) return '';
+    const payload = await response.json();
+    const candidates = [
+      payload?.data?.url,
+      payload?.data?.publisher?.url,
+      payload?.data?.author?.url
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      try {
+        const decoded = decodePossibleUrl(candidate);
+        const u = new URL(decoded);
+        if (allowedShopeeHost(u.hostname) && (extractProductIds(decoded) || u.hostname !== 's.shopee.co.th')) return decoded;
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return '';
+}
+
 async function resolveShopeeUrl(rawUrl) {
   let current = unwrapOriginLink(rawUrl);
   if (extractProductIds(current)) return current;
-  for (let i = 0; i < 3; i++) {
+
+  for (let i = 0; i < 4; i++) {
     try {
       const response = await fetch(current, {
+        method: 'GET',
         redirect: 'manual',
-        signal: AbortSignal.timeout(3500),
-        headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8' }
+        signal: AbortSignal.timeout(4500),
+        headers: {
+          'User-Agent': UA,
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8'
+        }
       });
+
       const location = response.headers.get('location');
-      if (!location) return response.url || current;
-      current = new URL(location, current).toString();
-      current = unwrapOriginLink(current);
-      if (extractProductIds(current)) return current;
+      if (location) {
+        current = unwrapOriginLink(new URL(location, current).toString());
+        if (extractProductIds(current)) return current;
+        continue;
+      }
+
+      const html = await response.text();
+      const candidate = shoPeeCandidateFromHtml(html, current);
+      if (candidate) {
+        current = unwrapOriginLink(candidate);
+        if (extractProductIds(current)) return current;
+        if (current !== rawUrl) continue;
+      }
+      if (extractProductIds(response.url || '')) return response.url;
+      break;
     } catch (_) {
       break;
     }
   }
-  return current;
-}
 
+  const viaMicrolink = await resolveViaMicrolink(current || rawUrl);
+  if (viaMicrolink) return viaMicrolink;
+  return current || rawUrl;
+}
 async function fetchApiProduct(ids, originalUrl, finalUrl) {
   if (!ids) return null;
   const endpoints = [
