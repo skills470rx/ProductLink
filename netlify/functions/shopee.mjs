@@ -10,6 +10,14 @@ function json(data, status = 200) {
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36";
 
+function allowedShopeeHost(hostname = "") {
+  const host = String(hostname).toLowerCase();
+  return host === "shopee.co.th"
+    || host.endsWith(".shopee.co.th")
+    || host === "shopee.com"
+    || host.endsWith(".shopee.com");
+}
+
 function decodeHtml(value = "") {
   return value
     .replace(/&amp;/gi, "&")
