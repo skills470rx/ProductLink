@@ -1094,7 +1094,108 @@ async function processUrls(urls, index) {
   processUrls(urls, index + 1);
 }
 
+async function extractProductDataLegacy(url) {
+  try {
+    // Exact strategy that worked in the original importer: browser -> AllOrigins -> Shopee HTML.
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+    const response = await fetch(proxyUrl, {
+      signal: AbortSignal.timeout(15000),
+      cache: 'no-store'
+    });
+
+    if (!response.ok) throw new Error('Legacy proxy HTTP ' + response.status);
+    const html = await response.text();
+    if (html.length < 1000) throw new Error('Legacy proxy returned empty/incomplete HTML');
+
+    const ogTitle = extractMeta(html, 'og:title');
+    const ogImage = extractMeta(html, 'og:image');
+    const ogDesc = extractMeta(html, 'og:description');
+
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
+    const pageTitle = titleMatch ? titleMatch[1].trim() : ogTitle || '';
+    const title = pageTitle.replace(/\s*\|\s*Shopee.*$/i, '').trim();
+
+    let price = 0;
+    let originalPrice = null;
+    const priceMatches = html.match(/฿\s*([\d,]+)/g);
+    if (priceMatches) {
+      const prices = priceMatches
+        .map(p => parseInt(p.replace(/[^\d]/g, ''), 10))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      if (prices.length > 0) price = prices[0];
+    }
+
+    const origMatches = html.match(/"price_before_discount"\s*:\s*(\d+)/g);
+    if (origMatches) {
+      const origVals = origMatches.map(m => {
+        const val = parseInt(m.match(/\d+/)?.[0] || '0', 10);
+        return val > 1000 ? val / 100000 : val;
+      }).filter(Number.isFinite);
+      if (origVals.length > 0) originalPrice = Math.max(...origVals);
+    }
+
+    const jsonLdMatch = html.match(/"price"\s*:\s*"?([\d.,]+)/);
+    if (jsonLdMatch && price === 0) price = parseFloat(jsonLdMatch[1].replace(/,/g, ''));
+
+    let shop = '';
+    const shopMatch = html.match(/"shop_name"\s*:\s*"([^"]+)"/);
+    if (shopMatch) shop = shopMatch[1];
+
+    let category = 'beauty';
+    const titleLower = title.toLowerCase();
+    if (titleLower.match(/ทาง|รถ|มอเตอร์|รถกระบะ|ล้อใหญ่|สเปรย์|ยง|รถยนต์/)) {
+      category = 'auto';
+    } else if (titleLower.match(/แฟชั่น|เสื้อ|กระเป๋า|รองเท้า|ฟาหนา|สรองเท้า|ครีด|เครีด|มือถือ|หูของ|ร้องเท้า/)) {
+      category = 'fashion';
+    } else if (titleLower.match(/หูฟัง|ลำโพง|มอนิเตอร์|มอบไล|แล็ปท็อป|เราร์|มาวน์|คอม|เกม/)) {
+      category = 'tech';
+    } else if (titleLower.match(/เครื่องของใช้|ม่าน|นอน|ของใช้|ห้อง|บ้าน/)) {
+      category = 'home';
+    }
+
+    if (price === 0) {
+      const pricePattern = html.match(/price[\d_]*\s*:\s*(\d{2,})/);
+      if (pricePattern) {
+        const p = parseInt(pricePattern[1], 10);
+        price = p > 100000 ? Math.round(p / 100000) : p;
+      }
+    }
+
+    let image = ogImage || '';
+    if (image && !image.startsWith('http')) image = 'https:' + image;
+
+    if (!title || !Number(price)) {
+      throw new Error('Legacy HTML loaded (' + html.length + ' bytes) but title/price missing');
+    }
+
+    return {
+      title,
+      image,
+      price: Number(price),
+      originalPrice: originalPrice ? Number(originalPrice) : null,
+      url,
+      shop,
+      category,
+      highlight: ogDesc || '',
+      reason: '',
+      source: 'legacy-allorigins'
+    };
+  } catch (e) {
+    throw new Error(e?.message || 'Legacy AllOrigins import failed');
+  }
+}
+
 async function extractProductData(url) {
+  let legacyError = '';
+  try {
+    const data = await extractProductDataLegacy(url);
+    return { ok: true, data };
+  } catch (e) {
+    legacyError = e?.message || 'Legacy import failed';
+    console.warn('Legacy Shopee import failed:', url, legacyError);
+  }
+
   try {
     const endpoint = '/api/shopee?url=' + encodeURIComponent(url);
     const response = await fetch(endpoint, {
@@ -1120,7 +1221,8 @@ async function extractProductData(url) {
       }
     };
   } catch (e) {
-    const message = e?.message || 'Unknown import error';
+    const edgeError = e?.message || 'Unknown import error';
+    const message = 'Legacy: ' + legacyError + ' | Edge: ' + edgeError;
     console.error('Shopee import failed:', url, message);
     return { ok: false, error: message };
   }
