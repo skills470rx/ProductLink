@@ -339,7 +339,166 @@ async function fetchJinaProduct(finalUrl, originalUrl) {
     return null;
   }
 }
-function productFromHtml(html, originalUrl, finalUrl) {
+function decodeEmbedded(value = '') {
+  return decodeHtml(String(value))
+    .replace(/\\u0022/gi, '"')
+    .replace(/\\u0027/gi, "'")
+    .replace(/\\u003C/gi, '<')
+    .replace(/\\u003E/gi, '>')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\\//g, '/')
+    .replace(/\\"/g, '"');
+}
+
+function jsonStringValue(value = '') {
+  try { return JSON.parse('"' + String(value).replace(/"/g, '\\"') + '"'); } catch (_) {}
+  return decodeEmbedded(value).replace(/\\n/g, ' ').replace(/\\t/g, ' ').trim();
+}
+
+function embeddedPrice(value) {
+  const n = Number(String(value ?? '').replace(/,/g, ''));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  // Shopee embeds monetary integers scaled by 100000 in its page JSON.
+  if (Number.isInteger(n) && n >= 1000000) return Number((n / 100000).toFixed(2));
+  return n < 10000000 ? n : 0;
+}
+
+function embeddedImage(value = '') {
+  const s = decodeEmbedded(value).trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^[A-Za-z0-9_-]{20,}$/.test(s)) return 'https://down-th.img.susercontent.com/file/' + s;
+  return '';
+}
+
+function objectProductCandidate(obj, ids, originalUrl, finalUrl) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  const rawItemId = obj.itemid ?? obj.item_id ?? obj.itemId ?? obj.product_id ?? obj.productId;
+  const rawShopId = obj.shopid ?? obj.shop_id ?? obj.shopId;
+  const idMatch = !ids || String(rawItemId ?? '') === String(ids.itemId) || String(rawShopId ?? '') === String(ids.shopId);
+  if (!idMatch) return null;
+
+  const title = obj.name ?? obj.title ?? obj.item_name ?? obj.itemName ?? obj.product_name ?? obj.productName ?? '';
+  const priceRaw = obj.price ?? obj.price_min ?? obj.priceMin ?? obj.price_max ?? obj.priceMax
+    ?? obj.product_price?.price?.single_value ?? obj.product_price?.price?.range_min;
+  const price = embeddedPrice(priceRaw);
+  if (!title || !price) return null;
+
+  let image = obj.image ?? obj.image_id ?? obj.imageId ?? obj.image_url ?? obj.imageUrl ?? '';
+  if (!image && Array.isArray(obj.images) && obj.images.length) image = obj.images[0];
+  if (!image && Array.isArray(obj.image_list) && obj.image_list.length) image = obj.image_list[0];
+  const originalRaw = obj.price_before_discount ?? obj.priceBeforeDiscount ?? obj.original_price ?? obj.originalPrice;
+  const originalPriceValue = embeddedPrice(originalRaw);
+  const cleanTitle = decodeEmbedded(title).trim();
+  return {
+    title: cleanTitle,
+    image: embeddedImage(image),
+    price,
+    originalPrice: originalPriceValue > price ? originalPriceValue : null,
+    url: originalUrl,
+    category: categoryFromTitle(cleanTitle),
+    highlight: decodeEmbedded(obj.description ?? obj.desc ?? '').trim(),
+    reason: '',
+    source: 'shopee-embedded-json',
+    resolvedUrl: finalUrl
+  };
+}
+
+function walkJsonForProduct(root, ids) {
+  const seen = new Set();
+  const stack = [root];
+  let visited = 0;
+  while (stack.length && visited < 25000) {
+    const value = stack.pop();
+    if (!value || typeof value !== 'object' || seen.has(value)) continue;
+    seen.add(value);
+    visited++;
+    const candidate = objectProductCandidate(value, ids, '', '');
+    if (candidate) return value;
+    if (Array.isArray(value)) {
+      for (let i = Math.min(value.length, 300) - 1; i >= 0; i--) stack.push(value[i]);
+    } else {
+      for (const child of Object.values(value)) if (child && typeof child === 'object') stack.push(child);
+    }
+  }
+  return null;
+}
+
+function productFromEmbeddedHtml(html, originalUrl, finalUrl, ids) {
+  const scriptRe = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+  for (const match of html.matchAll(scriptRe)) {
+    let text = match[1]?.trim();
+    if (!text || text.length < 20) continue;
+    const candidates = [text, decodeEmbedded(text)];
+    for (const candidateText of candidates) {
+      const trimmed = candidateText.trim();
+      if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) continue;
+      try {
+        const parsed = JSON.parse(trimmed);
+        const obj = walkJsonForProduct(parsed, ids);
+        if (obj) {
+          const product = objectProductCandidate(obj, ids, originalUrl, finalUrl);
+          if (product) return product;
+        }
+      } catch (_) {}
+    }
+  }
+
+  const normalized = decodeEmbedded(html);
+  const needle = ids?.itemId ? String(ids.itemId) : '';
+  const center = needle ? normalized.indexOf(needle) : -1;
+  const segment = center >= 0
+    ? normalized.slice(Math.max(0, center - 90000), Math.min(normalized.length, center + 90000))
+    : normalized;
+
+  const titlePatterns = [
+    /"(?:item_name|itemName|product_name|productName|name|title)"\s*:\s*"((?:\\.|[^"\\]){4,500})"/gi,
+    /'(?:item_name|itemName|product_name|productName|name|title)'\s*:\s*'([^']{4,500})'/gi
+  ];
+  let title = '';
+  for (const re of titlePatterns) {
+    for (const m of segment.matchAll(re)) {
+      const candidate = jsonStringValue(m[1]).replace(/\s*[|｜-]\s*Shopee.*$/i, '').trim();
+      if (candidate.length >= 4 && !/^(Shopee|Login|Sign Up|Thailand)$/i.test(candidate)) { title = candidate; break; }
+    }
+    if (title) break;
+  }
+
+  const pricePatterns = [
+    /"(?:price_min|priceMin|price)"\s*:\s*"?(\d{2,15}(?:\.\d+)?)"?/gi,
+    /'(?:price_min|priceMin|price)'\s*:\s*'?(\d{2,15}(?:\.\d+)?)'?/gi
+  ];
+  const prices = [];
+  for (const re of pricePatterns) {
+    for (const m of segment.matchAll(re)) {
+      const p = embeddedPrice(m[1]);
+      if (p > 0 && p < 10000000) prices.push(p);
+    }
+  }
+  const price = prices.length ? Math.min(...prices) : 0;
+
+  let image = '';
+  const imageMatch = segment.match(/"(?:image|image_id|imageId)"\s*:\s*"([^"\\]{20,500})"/i);
+  if (imageMatch?.[1]) image = embeddedImage(imageMatch[1]);
+
+  if (!title || !price) return null;
+  return {
+    title,
+    image,
+    price,
+    originalPrice: null,
+    url: originalUrl,
+    category: categoryFromTitle(title),
+    highlight: '',
+    reason: '',
+    source: 'shopee-embedded-regex',
+    resolvedUrl: finalUrl
+  };
+}
+function productFromHtml(html, originalUrl, finalUrl, ids = null) {
+  const embedded = productFromEmbeddedHtml(html, originalUrl, finalUrl, ids);
+  if (embedded) return embedded;
   const rawTitle = meta(html, 'og:title') || meta(html, 'twitter:title') || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
   const title = decodeHtml(rawTitle).replace(/\s*[|｜-]\s*Shopee.*$/i, '').trim();
   const image = meta(html, 'og:image') || meta(html, 'twitter:image');
@@ -437,7 +596,7 @@ async function fetchShopee(url) {
       });
       const html = await response.text();
       if (!response.ok) { diagnostics.push(label + '=' + response.status); return null; }
-      const product = productFromHtml(html, url, response.url || finalUrl);
+      const product = productFromHtml(html, url, response.url || finalUrl, ids);
       if (!product) diagnostics.push(label + '=no-data(len:' + html.length + ')');
       return product;
     } catch (e) {
@@ -454,7 +613,7 @@ async function fetchShopee(url) {
       });
       const html = await response.text();
       if (!response.ok) { diagnostics.push('proxy=' + response.status); return null; }
-      const product = productFromHtml(html, url, finalUrl);
+      const product = productFromHtml(html, url, finalUrl, ids);
       if (!product) diagnostics.push('proxy=no-data(len:' + html.length + ')');
       return product;
     } catch (e) {
@@ -467,7 +626,7 @@ async function fetchShopee(url) {
   for (const product of results) if (product) return { product, finalUrl };
 
   const shortResolved = finalUrl !== url ? finalUrl.replace(/^https?:\/\//, '').slice(0, 100) : 'unresolved';
-  throw new Error('Shopee blocked/no product data | resolved=' + shortResolved + ' | ids=' + (ids ? 'yes' : 'no') + ' | ' + diagnostics.slice(0, 8).join(', '));
+  throw new Error('Shopee page loaded but product data parser found nothing | resolved=' + shortResolved + ' | ids=' + (ids ? ids.shopId + '/' + ids.itemId : 'no') + ' | ' + diagnostics.slice(0, 8).join(', '));
 }
 export default async (req) => {
   try {
