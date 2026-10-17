@@ -1,87 +1,33 @@
-import { getStore } from "@netlify/blobs";
+import { getStore } from '@netlify/blobs';
+import { database } from '../../db/index.ts';
+import { products } from '../../db/schema.ts';
+import { handleProducts } from '../../lib/products-api.js';
+import { normalizeProduct } from '../../product-model.js';
 
-const STORE_NAME = "productlink-products";
-const KEY = "catalog";
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store"
+export default async (req) => handleProducts(req, {
+  async list() {
+    const db = database();
+    // Legacy catalog remains read-only and visible; new records go to Postgres.
+    const [rows, legacyResult] = await Promise.all([
+      db.select().from(products),
+      getStore('productlink-products').get('catalog', { type: 'json', consistency: 'strong' })
+        .then(data => ({ data, ok: true })).catch(() => ({ data: [], ok: false })),
+    ]);
+    const merged = new Map();
+    if (Array.isArray(legacyResult.data)) for (const raw of legacyResult.data) {
+      try { const p = normalizeProduct(raw); merged.set(p.url, p); } catch { /* Invalid legacy row. */ }
     }
-  });
-}
-
-function normalizeProduct(p) {
-  if (!p || typeof p !== "object") return null;
-  const title = String(p.title || "").trim();
-  const price = Number(p.price) || 0;
-  const url = String(p.url || "").trim();
-  if (!title || price <= 0 || !url) return null;
-
-  return {
-    id: Number(p.id) || 0,
-    title,
-    price,
-    originalPrice: p.originalPrice == null ? null : Number(p.originalPrice) || null,
-    image: String(p.image || ""),
-    url,
-    category: String(p.category || "beauty"),
-    tags: Array.isArray(p.tags) ? p.tags : [],
-    clicks: Number(p.clicks) || 0,
-    highlight: String(p.highlight || ""),
-    reason: String(p.reason || "")
-  };
-}
-
-export default async (req) => {
-  try {
-    const store = getStore(STORE_NAME);
-
-    if (req.method === "GET") {
-      const products = (await store.get(KEY, { type: "json", consistency: "strong" })) || [];
-      return json({ products: Array.isArray(products) ? products : [] });
-    }
-
-    if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
-    }
-
-    const body = await req.json();
-    const incoming = Array.isArray(body?.products) ? body.products : [];
-    if (!incoming.length) return json({ error: "No products supplied" }, 400);
-
-    const current = (await store.get(KEY, { type: "json", consistency: "strong" })) || [];
-    const existing = Array.isArray(current) ? current : [];
-
-    const byUrl = new Map();
-    for (const p of existing) {
-      const n = normalizeProduct(p);
-      if (n) byUrl.set(n.url, n);
-    }
-
-    let maxId = existing.reduce((max, p) => Math.max(max, Number(p?.id) || 0), 0);
-
-    for (const raw of incoming) {
-      const p = normalizeProduct(raw);
-      if (!p) continue;
-      if (byUrl.has(p.url)) continue;
-      if (!p.id || p.id <= maxId) p.id = ++maxId;
-      else maxId = p.id;
-      byUrl.set(p.url, p);
-    }
-
-    const products = [...byUrl.values()];
-    await store.setJSON(KEY, products);
-
-    return json({
-      ok: true,
-      saved: products.length - existing.length,
-      total: products.length
+    for (const row of rows) merged.set(row.url, { ...row.data, id: row.id + 1000000 });
+    return { products: [...merged.values()], warning: legacyResult.ok ? null : 'LEGACY_STORAGE_UNAVAILABLE' };
+  },
+  async save(incoming) {
+    const db = database();
+    // Unique URL prevents duplicate imports and concurrent lost writes.
+    const unique = [...new Map(incoming.map(p => [p.url, p])).values()];
+    return db.transaction(async tx => {
+      const rows = await tx.insert(products).values(unique.map(p => ({ url: p.url, data: p })))
+        .onConflictDoUpdate({ target: products.url, set: { url: products.url } }).returning();
+      return rows.map(row => ({ ...row.data, id: row.id + 1000000 }));
     });
-  } catch (error) {
-    console.error("products function error", error);
-    return json({ error: "Storage error", detail: error?.message || "Unknown error" }, 500);
-  }
-};
+  },
+});
