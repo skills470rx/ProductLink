@@ -83,6 +83,15 @@ function extractProductIds(rawUrl) {
   return null;
 }
 
+function canonicalProductUrl(resolvedUrl, originalUrl) {
+  const ids = extractProductIds(resolvedUrl) || extractProductIds(originalUrl);
+  const parsed = new URL(resolvedUrl);
+  if (!allowedShopeeHost(parsed.hostname) || !/^https?:$/.test(parsed.protocol)) {
+    throw new Error('Invalid resolved Shopee URL');
+  }
+  return ids ? parsed.origin + '/product/' + ids.shopId + '/' + ids.itemId : resolvedUrl;
+}
+
 function apiPrice(value) {
   const n = Number(String(value ?? '').replace(/,/g, ''));
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -376,7 +385,8 @@ function objectProductCandidate(obj, ids, originalUrl, finalUrl) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
   const rawItemId = obj.itemid ?? obj.item_id ?? obj.itemId ?? obj.product_id ?? obj.productId;
   const rawShopId = obj.shopid ?? obj.shop_id ?? obj.shopId;
-  const idMatch = !ids || String(rawItemId ?? '') === String(ids.itemId) || String(rawShopId ?? '') === String(ids.shopId);
+  const idMatch = !ids || (String(rawItemId ?? '') === String(ids.itemId)
+    && (rawShopId == null || String(rawShopId) === String(ids.shopId)));
   if (!idMatch) return null;
 
   const title = obj.name ?? obj.title ?? obj.item_name ?? obj.itemName ?? obj.product_name ?? obj.productName ?? '';
@@ -523,7 +533,7 @@ function productFromHtml(html, originalUrl, finalUrl, ids = null) {
 }
 
 async function fetchShopee(url) {
-  const finalUrl = await resolveShopeeUrl(url);
+  const finalUrl = canonicalProductUrl(await resolveShopeeUrl(url), url);
   const ids = extractProductIds(finalUrl) || extractProductIds(url);
   const diagnostics = [];
 
@@ -625,8 +635,9 @@ async function fetchShopee(url) {
   const results = await Promise.all([apiTask, jinaTask, ...pageTasks, proxyTask]);
   for (const product of results) if (product) return { product, finalUrl };
 
-  const shortResolved = finalUrl !== url ? finalUrl.replace(/^https?:\/\//, '').slice(0, 100) : 'unresolved';
-  throw new Error('Shopee page loaded but product data parser found nothing | resolved=' + shortResolved + ' | ids=' + (ids ? ids.shopId + '/' + ids.itemId : 'no') + ' | ' + diagnostics.slice(0, 8).join(', '));
+  const error = new Error('Shopee ไม่ส่งข้อมูลสินค้าที่อ่านได้ กรุณาเปิดลิงก์สินค้าแล้วกรอกชื่อและราคาเอง');
+  error.code = 'SHOPEE_DATA_UNAVAILABLE';
+  throw error;
 }
 export default async (req) => {
   try {
@@ -639,8 +650,8 @@ export default async (req) => {
     const fetched = await fetchShopee(url);
     return json(fetched.product);
   } catch (error) {
-    console.error('shopee edge import error', error);
-    return json({ error: error?.message || 'ดึงข้อมูล Shopee ไม่สำเร็จ' }, 502);
+    console.error('shopee edge import error', error?.code || error?.name || 'Error');
+    return json({ error: error?.message || 'ดึงข้อมูล Shopee ไม่สำเร็จ', code: error?.code || 'SHOPEE_IMPORT_FAILED' }, 502);
   }
 };
 export const config = { path: "/api/shopee" };
