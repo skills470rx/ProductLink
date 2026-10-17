@@ -83,6 +83,15 @@ function extractProductIds(rawUrl) {
   return null;
 }
 
+function canonicalProductUrl(resolvedUrl, originalUrl) {
+  const ids = extractProductIds(resolvedUrl) || extractProductIds(originalUrl);
+  const parsed = new URL(resolvedUrl);
+  if (!allowedShopeeHost(parsed.hostname) || !/^https?:$/.test(parsed.protocol)) {
+    throw new Error('Invalid resolved Shopee URL');
+  }
+  return ids ? parsed.origin + '/product/' + ids.shopId + '/' + ids.itemId : resolvedUrl;
+}
+
 function apiPrice(value) {
   const n = Number(String(value ?? '').replace(/,/g, ''));
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -340,7 +349,7 @@ async function fetchJinaProduct(finalUrl, originalUrl) {
   }
 }
 async function fetchShopee(url) {
-  const finalUrl = await resolveShopeeUrl(url);
+  const finalUrl = canonicalProductUrl(await resolveShopeeUrl(url), url);
   const ids = extractProductIds(finalUrl) || extractProductIds(url);
 
   const apiTask = fetchApiProduct(ids, url, finalUrl);

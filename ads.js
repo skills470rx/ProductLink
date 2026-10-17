@@ -1187,15 +1187,6 @@ async function extractProductDataLegacy(url) {
 }
 
 async function extractProductData(url) {
-  let legacyError = '';
-  try {
-    const data = await extractProductDataLegacy(url);
-    return { ok: true, data };
-  } catch (e) {
-    legacyError = e?.message || 'Legacy import failed';
-    console.warn('Legacy Shopee import failed:', url, legacyError);
-  }
-
   try {
     const endpoint = '/api/shopee?url=' + encodeURIComponent(url);
     const response = await fetch(endpoint, {
@@ -1208,6 +1199,9 @@ async function extractProductData(url) {
     let data = null;
     try { data = await response.json(); } catch (_) {}
     if (!response.ok || !data || data.error) {
+      if (data?.code === 'SHOPEE_DATA_UNAVAILABLE') {
+        return { ok: false, error: data.error };
+      }
       throw new Error(data?.error || ('Import failed (' + response.status + ')'));
     }
     if (!data.title || !Number(data.price)) throw new Error('ข้อมูลสินค้าไม่ครบ');
@@ -1221,10 +1215,13 @@ async function extractProductData(url) {
       }
     };
   } catch (e) {
-    const edgeError = e?.message || 'Unknown import error';
-    const message = 'Legacy: ' + legacyError + ' | Edge: ' + edgeError;
-    console.error('Shopee import failed:', url, message);
-    return { ok: false, error: message };
+    // Keep the browser proxy only as a fallback for an unavailable server importer.
+    try {
+      const data = await extractProductDataLegacy(url);
+      return { ok: true, data };
+    } catch (_) {
+      return { ok: false, error: 'ดึงข้อมูล Shopee ไม่สำเร็จ กรุณาเปิดลิงก์สินค้าแล้วกรอกชื่อและราคาเอง' };
+    }
   }
 }
 function extractMeta(html, property) {
@@ -1324,10 +1321,10 @@ importSaveAll.addEventListener("click", async function() {
     const catEl = document.getElementById(`import-cat-${idx}`);
 
     const title = titleEl ? titleEl.value.trim() : (item.data ? item.data.title : "");
-    const price = priceEl ? (parseInt(priceEl.value) || 0) : (item.data ? item.data.price : 0);
+    const price = priceEl ? (Number(priceEl.value) || 0) : (item.data ? item.data.price : 0);
     const category = catEl ? catEl.value.trim() : (item.data ? item.data.category : "beauty");
 
-    if (!title || price <= 0) {
+    if (!title || !Number.isFinite(price) || price <= 0) {
       skippedCount++;
       return;
     }
