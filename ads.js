@@ -1040,7 +1040,7 @@ importActionBtn.addEventListener("click", function() {
   }
 
   // Parse URLs (split by newlines, trim, filter empty)
-  const urls = text.split(/\n/).map(u => u.trim()).filter(u => u.length > 0 && (u.includes("shopee.co.th") || u.includes("s.shopee.co.th") || u.includes("shopee.com")));
+  const urls = text.split(/\n/).map(u => u.trim()).filter(Boolean);
   
   if (urls.length === 0) {
     alert("ไม่พบลิงก์ Shopee ที่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
@@ -1078,10 +1078,11 @@ async function processUrls(urls, index) {
 
   // Try to extract data
   const result = await extractProductData(url);
-  const data = result?.ok ? result.data : null;
+  if (importResults[cardIdx]?.status === 'removed') return processUrls(urls, index + 1);
+  const data = result?.data || null;
   importResults[cardIdx].data = data;
   importResults[cardIdx].error = result?.error || "";
-  importResults[cardIdx].status = data ? "success" : "error";
+  importResults[cardIdx].status = result?.ok && data?.status === 'success' ? 'success' : result?.ok ? 'partial' : 'error';
 
   progressFill.style.width = Math.round(((index + 1) / urls.length) * 100) + "%";
   progressText.textContent = `ดึงข้อมูล ${index + 1}/${urls.length} เสร็จ`;
@@ -1094,145 +1095,45 @@ async function processUrls(urls, index) {
   processUrls(urls, index + 1);
 }
 
-async function extractProductDataLegacy(url) {
+function isShopeeImportUrl(value) {
   try {
-    // Exact strategy that worked in the original importer: browser -> AllOrigins -> Shopee HTML.
-    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-    const response = await fetch(proxyUrl, {
-      signal: AbortSignal.timeout(15000),
-      cache: 'no-store'
-    });
-
-    if (!response.ok) throw new Error('Legacy proxy HTTP ' + response.status);
-    const html = await response.text();
-    if (html.length < 1000) throw new Error('Legacy proxy returned empty/incomplete HTML');
-
-    const ogTitle = extractMeta(html, 'og:title');
-    const ogImage = extractMeta(html, 'og:image');
-    const ogDesc = extractMeta(html, 'og:description');
-
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-    const pageTitle = titleMatch ? titleMatch[1].trim() : ogTitle || '';
-    const title = pageTitle.replace(/\s*\|\s*Shopee.*$/i, '').trim();
-
-    let price = 0;
-    let originalPrice = null;
-    const priceMatches = html.match(/฿\s*([\d,]+)/g);
-    if (priceMatches) {
-      const prices = priceMatches
-        .map(p => parseInt(p.replace(/[^\d]/g, ''), 10))
-        .filter(Number.isFinite)
-        .sort((a, b) => a - b);
-      if (prices.length > 0) price = prices[0];
-    }
-
-    const origMatches = html.match(/"price_before_discount"\s*:\s*(\d+)/g);
-    if (origMatches) {
-      const origVals = origMatches.map(m => {
-        const val = parseInt(m.match(/\d+/)?.[0] || '0', 10);
-        return val > 1000 ? val / 100000 : val;
-      }).filter(Number.isFinite);
-      if (origVals.length > 0) originalPrice = Math.max(...origVals);
-    }
-
-    const jsonLdMatch = html.match(/"price"\s*:\s*"?([\d.,]+)/);
-    if (jsonLdMatch && price === 0) price = parseFloat(jsonLdMatch[1].replace(/,/g, ''));
-
-    let shop = '';
-    const shopMatch = html.match(/"shop_name"\s*:\s*"([^"]+)"/);
-    if (shopMatch) shop = shopMatch[1];
-
-    let category = 'beauty';
-    const titleLower = title.toLowerCase();
-    if (titleLower.match(/ทาง|รถ|มอเตอร์|รถกระบะ|ล้อใหญ่|สเปรย์|ยง|รถยนต์/)) {
-      category = 'auto';
-    } else if (titleLower.match(/แฟชั่น|เสื้อ|กระเป๋า|รองเท้า|ฟาหนา|สรองเท้า|ครีด|เครีด|มือถือ|หูของ|ร้องเท้า/)) {
-      category = 'fashion';
-    } else if (titleLower.match(/หูฟัง|ลำโพง|มอนิเตอร์|มอบไล|แล็ปท็อป|เราร์|มาวน์|คอม|เกม/)) {
-      category = 'tech';
-    } else if (titleLower.match(/เครื่องของใช้|ม่าน|นอน|ของใช้|ห้อง|บ้าน/)) {
-      category = 'home';
-    }
-
-    if (price === 0) {
-      const pricePattern = html.match(/price[\d_]*\s*:\s*(\d{2,})/);
-      if (pricePattern) {
-        const p = parseInt(pricePattern[1], 10);
-        price = p > 100000 ? Math.round(p / 100000) : p;
-      }
-    }
-
-    let image = ogImage || '';
-    if (image && !image.startsWith('http')) image = 'https:' + image;
-
-    if (!title || !Number(price)) {
-      throw new Error('Legacy HTML loaded (' + html.length + ' bytes) but title/price missing');
-    }
-
-    return {
-      title,
-      image,
-      price: Number(price),
-      originalPrice: originalPrice ? Number(originalPrice) : null,
-      url,
-      shop,
-      category,
-      highlight: ogDesc || '',
-      reason: '',
-      source: 'legacy-allorigins'
-    };
-  } catch (e) {
-    throw new Error(e?.message || 'Legacy AllOrigins import failed');
-  }
+    const u = new URL(value);
+    return u.protocol === 'https:' && !u.username && !u.password && !u.port && u.pathname !== '/'
+      && ['shopee.co.th', 'www.shopee.co.th', 's.shopee.co.th', 'shopee.com', 'www.shopee.com'].includes(u.hostname);
+  } catch (_) { return false; }
 }
 
 async function extractProductData(url) {
-  let legacyError = '';
+  if (!isShopeeImportUrl(url)) return { ok: false, error: 'ใช้ลิงก์ HTTPS ของ Shopee ที่ถูกต้อง' };
   try {
-    const data = await extractProductDataLegacy(url);
-    return { ok: true, data };
-  } catch (e) {
-    legacyError = e?.message || 'Legacy import failed';
-    console.warn('Legacy Shopee import failed:', url, legacyError);
-  }
-
-  try {
-    const endpoint = '/api/shopee?url=' + encodeURIComponent(url);
-    const response = await fetch(endpoint, {
-      method: 'GET',
+    // /api/shopee is the Edge route. Do not send links through public proxies.
+    const response = await fetch('/api/shopee?url=' + encodeURIComponent(url), {
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(15000),
       cache: 'no-store'
     });
-
-    let data = null;
-    try { data = await response.json(); } catch (_) {}
-    if (!response.ok || !data || data.error) {
-      throw new Error(data?.error || ('Import failed (' + response.status + ')'));
+    let data;
+    try { data = await response.json(); } catch (_) {
+      throw new Error('Endpoint Import ไม่ตอบกลับเป็น JSON (' + response.status + ')');
     }
-    if (!data.title || !Number(data.price)) throw new Error('ข้อมูลสินค้าไม่ครบ');
-
-    return {
-      ok: true,
-      data: {
-        ...data,
-        price: Number(data.price),
-        originalPrice: data.originalPrice ? Number(data.originalPrice) : null
-      }
+    if (!data || typeof data !== 'object') throw new Error('ข้อมูลตอบกลับจาก Import ไม่ถูกต้อง');
+    // Retain real metadata even when Shopee does not provide a price or image.
+    if (!response.ok || data.error) return {
+      ok: false, data: data.url === url ? data : null,
+      error: data.error || ('ดึงข้อมูลไม่สำเร็จ (' + response.status + ')')
     };
+    const price = data.price == null ? null : Number(data.price);
+    if (price !== null && (!Number.isFinite(price) || price <= 0)) throw new Error('รูปแบบราคาจาก Shopee ไม่ถูกต้อง');
+    return { ok: true, data: { ...data, price, originalPrice: data.originalPrice == null ? null : Number(data.originalPrice) } };
   } catch (e) {
-    const edgeError = e?.message || 'Unknown import error';
-    const message = 'Legacy: ' + legacyError + ' | Edge: ' + edgeError;
-    console.error('Shopee import failed:', url, message);
-    return { ok: false, error: message };
+    return { ok: false, error: e.name === 'TimeoutError' || e.name === 'AbortError'
+      ? 'การ Import ใช้เวลานานเกินกำหนด กรุณาลองอีกครั้งหรือกรอกข้อมูลเอง'
+      : (e.message || 'ดึงข้อมูล Shopee ไม่สำเร็จ') };
   }
 }
-function extractMeta(html, property) {
-  const match = html.match(new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`));
-  if (match) return match[1];
-  const match2 = html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*property=["']${property}["']`));
-  if (match2) return match2[1];
-  return "";
+
+function escapeImportAttribute(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function renderImportCard(idx, url, data) {
@@ -1246,6 +1147,13 @@ function renderImportCard(idx, url, data) {
   card.id = `import-card-${idx}`;
   card.className = `import-preview-card ${data ? (data.error ? 'error' : 'success') : 'pending'}`;
 
+  if (importResults[idx]?.status === 'pending') {
+    card.setAttribute('aria-busy', 'true');
+    card.textContent = 'กำลังดึงข้อมูล Shopee...';
+    preview.appendChild(card);
+    return;
+  }
+
   if (!data) {
     // Fallback: show manual edit fields
     card.innerHTML = `
@@ -1253,7 +1161,7 @@ function renderImportCard(idx, url, data) {
       <div class="preview-info">
         <input type="text" class="import-card-field" id="import-title-${idx}" placeholder="ชื่อสินค้า (กรอกเอง)" value="">
         <div style="display:flex;gap:8px;margin-top:6px;">
-          <input type="number" class="import-card-field" id="import-price-${idx}" placeholder="ราคา (บาท)" value="" style="width:120px;">
+          <input type="number" min="0.01" step="0.01" class="import-card-field" id="import-price-${idx}" placeholder="ราคา (บาท)" value="" style="width:120px;">
           <select class="import-card-field" id="import-cat-${idx}" style="width:160px;">
             <option value="beauty">\u{1f484} ความงาม</option>
             <option value="fashion">\u{1f455} แฟชั่น</option>
@@ -1269,13 +1177,14 @@ function renderImportCard(idx, url, data) {
     const errorEl = card.querySelector(`#import-error-${idx}`);
     if (errorEl) errorEl.textContent = importResults[idx]?.error || "ดึงข้อมูลไม่สำเร็จ — กรุณากรอกเอง";
   } else {
-    card.className = "import-preview-card success";
+    const complete = data.status === 'success' && !!data.title && !!data.image && Number.isFinite(data.price) && data.price > 0;
+    card.className = 'import-preview-card ' + (complete ? 'success' : 'error');
     card.innerHTML = `
-      <img class="preview-img" src="${data.image}" alt="" onerror="this.style.display='none'">
+      ${data.image ? `<img class="preview-img" src="${escapeImportAttribute(data.image)}" alt="รูปสินค้าจาก Shopee" onerror="this.style.display='none';this.closest('.import-preview-card').classList.replace('success','error');this.closest('.import-preview-card').querySelector('.preview-status').textContent='โหลดรูปสินค้าจาก Shopee ไม่สำเร็จ'">` : ''}
       <div class="preview-info">
-        <input type="text" class="import-card-field" id="import-title-${idx}" value="${data.title.replace(/"/g, '&quot;')}">
+        <input type="text" class="import-card-field" id="import-title-${idx}" placeholder="ชื่อสินค้า (กรอกเอง)" value="${escapeImportAttribute(data.title)}">
         <div style="display:flex;gap:8px;margin-top:6px;align-items:center;">
-          <span class="preview-price">\u0e3f${data.price.toLocaleString()}</span>
+          ${data.price == null ? `<input type="number" min="0.01" step="0.01" class="import-card-field" id="import-price-${idx}" aria-label="ราคา (บาท)" placeholder="ราคา (บาท)" style="width:120px;">` : `<span class="preview-price">\u0e3f${data.price.toLocaleString()}</span>`}
           ${data.originalPrice ? `<span style="color:#bbb;text-decoration:line-through;font-size:0.85rem;">\u0e3f${data.originalPrice.toLocaleString()}</span>` : ""}
         </div>
         <select class="import-card-field" id="import-cat-${idx}" style="width:160px;margin-top:6px;">
@@ -1285,10 +1194,11 @@ function renderImportCard(idx, url, data) {
           <option value="home" ${data.category === 'home' ? 'selected' : ''}>\u{1f3e0} ของใช้</option>
           <option value="auto" ${data.category === 'auto' ? 'selected' : ''}>\u{1f697} ยานยนต์</option>
         </select>
-        <span class="preview-status ok">\u2705 ดึงข้อมูลสำเร็จ</span>
+        <span class="preview-status ${complete ? 'ok' : 'fail'}" id="import-status-${idx}"></span>
       </div>
       <button class="import-card-remove" onclick="removeImportCard(${idx})" title="ลบ">\u2715</button>
     `;
+    card.querySelector(`#import-status-${idx}`).textContent = complete ? 'ดึงข้อมูลรูปภาพและราคาสำเร็จ' : (importResults[idx]?.error || data.message || 'ข้อมูลสินค้าไม่ครบ กรุณากรอกข้อมูลที่ขาด');
   }
 
   preview.appendChild(card);
@@ -1324,10 +1234,10 @@ importSaveAll.addEventListener("click", async function() {
     const catEl = document.getElementById(`import-cat-${idx}`);
 
     const title = titleEl ? titleEl.value.trim() : (item.data ? item.data.title : "");
-    const price = priceEl ? (parseInt(priceEl.value) || 0) : (item.data ? item.data.price : 0);
+    const price = priceEl ? Number(priceEl.value) : (item.data ? item.data.price : 0);
     const category = catEl ? catEl.value.trim() : (item.data ? item.data.category : "beauty");
 
-    if (!title || price <= 0) {
+    if (!title || !Number.isFinite(price) || price <= 0 || !isShopeeImportUrl(item.url)) {
       skippedCount++;
       return;
     }
